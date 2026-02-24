@@ -1,0 +1,7 @@
+Flask
+Flask-Cors
+pymysql
+captcha
+Pillow
+openpyxl
+python-docx

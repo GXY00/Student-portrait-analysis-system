@@ -1,0 +1,229 @@
+{
+  "version": "2.0",
+  "description": "学生画像规则配置（成绩 + 心理 + 行为多维融合）",
+
+  "execution_order": [
+    "平均成绩",
+    "成绩标准差",
+    "偏科指数",
+
+    "成绩等级",
+    "学习稳定性",
+    "偏科程度",
+
+    "学习自律指数",
+    "学习动机强度",
+    "心理稳定性指数",
+    "学习方式倾向",
+    "学术参与度指数",
+    "学习投入强度"
+  ],
+
+  "tags": [
+
+    {
+      "tag_name": "平均成绩",
+      "tag_type": "定量",
+      "tag_level": 2,
+      "description": "学生所有课程成绩的平均值",
+      "rule": {
+        "type": "aggregate",
+        "source_table": "score",
+        "field": "score",
+        "aggregate_func": "avg",
+        "group_by": "student_id",
+        "conditions": {}
+      }
+    },
+
+    {
+      "tag_name": "成绩标准差",
+      "tag_type": "定量",
+      "tag_level": 2,
+      "description": "学生成绩的标准差，用于衡量学习稳定性",
+      "rule": {
+        "type": "aggregate",
+        "source_table": "score",
+        "field": "score",
+        "aggregate_func": "std",
+        "group_by": "student_id",
+        "conditions": {}
+      }
+    },
+
+    {
+      "tag_name": "偏科指数",
+      "tag_type": "定量",
+      "tag_level": 3,
+      "description": "最高分与最低分的差值",
+      "rule": {
+        "type": "formula",
+        "source_table": "score",
+        "group_by": "student_id",
+        "operations": [
+          { "func": "max", "field": "score" },
+          { "func": "min", "field": "score" }
+        ],
+        "operator": "-"
+      }
+    },
+
+    {
+      "tag_name": "成绩等级",
+      "tag_type": "等级",
+      "tag_level": 2,
+      "description": "根据平均成绩划分等级",
+      "rule": {
+        "type": "threshold",
+        "base_tag": "平均成绩",
+        "rules": [
+          { "min": 90, "label": "优秀" },
+          { "min": 80, "label": "良好" },
+          { "min": 70, "label": "中等" },
+          { "min": 60, "label": "及格" },
+          { "min": 0,  "label": "较弱" }
+        ]
+      }
+    },
+
+    {
+      "tag_name": "学习稳定性",
+      "tag_type": "等级",
+      "tag_level": 3,
+      "description": "根据成绩标准差划分稳定性",
+      "rule": {
+        "type": "threshold",
+        "base_tag": "成绩标准差",
+        "rules": [
+          { "max": 5, "label": "非常稳定" },
+          { "max": 10, "label": "较稳定" },
+          { "max": 15, "label": "波动较大" },
+          { "max": 100, "label": "极不稳定" }
+        ]
+      }
+    },
+
+    {
+      "tag_name": "偏科程度",
+      "tag_type": "等级",
+      "tag_level": 3,
+      "description": "根据偏科指数划分偏科程度",
+      "rule": {
+        "type": "threshold",
+        "base_tag": "偏科指数",
+        "rules": [
+          { "max": 10, "label": "科目均衡" },
+          { "max": 20, "label": "轻度偏科" },
+          { "max": 35, "label": "明显偏科" },
+          { "max": 100, "label": "严重偏科" }
+        ]
+      }
+    },
+
+    {
+      "tag_name": "学习自律指数",
+      "tag_type": "定量",
+      "tag_level": 3,
+      "description": "基于学习时间与行为习惯问卷计算",
+      "rule": {
+        "type": "questionnaire_score",
+        "questionnaire_title": "高二上学习情况期末调查问卷",
+        "questions": [
+          {"key": "Q1"},
+          {"key": "Q2"},
+          {"key": "Q3", "reverse": true},
+          {"key": "Q4"},
+          {"key": "Q5"},
+          {"key": "Q6"},
+          {"key": "Q7", "reverse": true}
+        ],
+        "calculation": "average"
+      }
+    },
+
+    {
+      "tag_name": "学习动机强度",
+      "tag_type": "定量",
+      "tag_level": 3,
+      "description": "基于学习态度与动机问卷计算",
+      "rule": {
+        "type": "questionnaire_score",
+        "questionnaire_title": "高二上学习情况期末调查问卷",
+        "questions": [
+          {"key": "Q12"},
+          {"key": "Q13"},
+          {"key": "Q14"},
+          {"key": "Q15"},
+          {"key": "Q16"}
+        ],
+        "calculation": "average"
+      }
+    },
+
+    {
+      "tag_name": "心理稳定性指数",
+      "tag_type": "定量",
+      "tag_level": 3,
+      "description": "基于心理与自我管理能力问卷计算",
+      "rule": {
+        "type": "questionnaire_score",
+        "questionnaire_title": "高二上学习情况期末调查问卷",
+        "questions": [
+          {"key": "Q20"},
+          {"key": "Q21"},
+          {"key": "Q22", "reverse": true},
+          {"key": "Q23"},
+          {"key": "Q24"}
+        ],
+        "calculation": "average"
+      }
+    },
+
+    {
+      "tag_name": "学习方式倾向",
+      "tag_type": "定性",
+      "tag_level": 3,
+      "description": "根据学习方式偏好题目确定主导学习类型",
+      "rule": {
+        "type": "questionnaire_preference",
+        "questionnaire_title": "高二上学习情况期末调查问卷",
+        "mapping": {
+          "Q8": "独立学习型",
+          "Q9": "合作讨论型",
+          "Q10": "视频学习型",
+          "Q11": "实践项目型"
+        }
+      }
+    },
+
+    {
+      "tag_name": "学术参与度指数",
+      "tag_type": "定量",
+      "tag_level": 3,
+      "description": "结合校园参与问卷与客观行为数据计算",
+      "rule": {
+        "type": "questionnaire_score_with_numeric",
+        "questionnaire_title": "高二上学习情况期末调查问卷",
+        "likert_questions": ["Q17", "Q18", "Q19"],
+        "numeric_fields": ["N2", "N3"],
+        "weights": {
+          "likert": 0.6,
+          "numeric": 0.4
+        }
+      }
+    },
+
+    {
+      "tag_name": "学习投入强度",
+      "tag_type": "定量",
+      "tag_level": 3,
+      "description": "基于每周课外学习时长计算",
+      "rule": {
+        "type": "questionnaire_numeric",
+        "questionnaire_title": "高二上学习情况期末调查问卷",
+        "field": "N1"
+      }
+    }
+
+  ]
+}
