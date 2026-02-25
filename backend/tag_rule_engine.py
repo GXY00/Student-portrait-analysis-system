@@ -14,17 +14,17 @@ class TagRuleEngine:
     # ===============================
     # 主入口
     # ===============================
-    def execute_all(self):
+    def execute_all(self, target_student_id=None):
         self.sync_tags()
         execution_order = self.rule_config["execution_order"]
         tag_map = {tag["tag_name"]: tag for tag in self.rule_config["tags"]}
 
         for tag_name in execution_order:
             tag = tag_map[tag_name]
-            print(f"正在生成标签: {tag_name}")
-            self.execute_tag(tag)
+            # print(f"正在生成标签: {tag_name}")
+            self.execute_tag(tag, target_student_id)
 
-        print("全部标签生成完成")
+        # print("全部标签生成完成")
         self.conn.commit()
 
     # ===============================
@@ -60,40 +60,40 @@ class TagRuleEngine:
     # ===============================
     # 执行单个标签
     # ===============================
-    def execute_tag(self, tag):
+    def execute_tag(self, tag, target_student_id=None):
         rule = tag["rule"]
         rule_type = rule["type"]
 
         if rule_type == "aggregate":
-            self.handle_aggregate(tag, rule)
+            self.handle_aggregate(tag, rule, target_student_id)
 
         elif rule_type == "formula":
-            self.handle_formula(tag, rule)
+            self.handle_formula(tag, rule, target_student_id)
 
         elif rule_type == "threshold":
-            self.handle_threshold(tag, rule)
+            self.handle_threshold(tag, rule, target_student_id)
             
         elif rule_type == "questionnaire_score":
-            self.handle_questionnaire_score(tag, rule)
+            self.handle_questionnaire_score(tag, rule, target_student_id)
             
         elif rule_type == "questionnaire_score_with_numeric":
-            self.handle_questionnaire_score_with_numeric(tag, rule)
+            self.handle_questionnaire_score_with_numeric(tag, rule, target_student_id)
             
         elif rule_type == "questionnaire_preference":
-            self.handle_questionnaire_preference(tag, rule)
+            self.handle_questionnaire_preference(tag, rule, target_student_id)
             
         elif rule_type == "questionnaire_numeric":
-            self.handle_questionnaire_numeric(tag, rule)
+            self.handle_questionnaire_numeric(tag, rule, target_student_id)
 
     # ===============================
     # 问卷评分类型 (questionnaire_score)
     # ===============================
-    def handle_questionnaire_score(self, tag, rule):
+    def handle_questionnaire_score(self, tag, rule, target_student_id=None):
         title = rule["questionnaire_title"]
         questions = rule["questions"]
         
         # 获取问卷记录
-        records = self.get_questionnaire_records(title)
+        records = self.get_questionnaire_records(title, target_student_id)
         
         for student_id, raw_json in records.items():
             total_score = 0
@@ -130,13 +130,13 @@ class TagRuleEngine:
     # ===============================
     # 问卷评分+数值类型 (questionnaire_score_with_numeric)
     # ===============================
-    def handle_questionnaire_score_with_numeric(self, tag, rule):
+    def handle_questionnaire_score_with_numeric(self, tag, rule, target_student_id=None):
         title = rule["questionnaire_title"]
         likert_keys = rule["likert_questions"]
         numeric_keys = rule["numeric_fields"]
         weights = rule["weights"]
         
-        records = self.get_questionnaire_records(title)
+        records = self.get_questionnaire_records(title, target_student_id)
         
         for student_id, raw_json in records.items():
             try:
@@ -182,11 +182,11 @@ class TagRuleEngine:
     # ===============================
     # 问卷偏好类型 (questionnaire_preference)
     # ===============================
-    def handle_questionnaire_preference(self, tag, rule):
+    def handle_questionnaire_preference(self, tag, rule, target_student_id=None):
         title = rule["questionnaire_title"]
         mapping = rule["mapping"] # {"Q8": "独立学习型", ...}
         
-        records = self.get_questionnaire_records(title)
+        records = self.get_questionnaire_records(title, target_student_id)
         
         for student_id, raw_json in records.items():
             try:
@@ -218,11 +218,11 @@ class TagRuleEngine:
     # ===============================
     # 问卷数值直接提取 (questionnaire_numeric)
     # ===============================
-    def handle_questionnaire_numeric(self, tag, rule):
+    def handle_questionnaire_numeric(self, tag, rule, target_student_id=None):
         title = rule["questionnaire_title"]
         field = rule["field"]
         
-        records = self.get_questionnaire_records(title)
+        records = self.get_questionnaire_records(title, target_student_id)
         
         for student_id, raw_json in records.items():
             try:
@@ -245,7 +245,7 @@ class TagRuleEngine:
     # ===============================
     # 辅助方法：获取问卷记录
     # ===============================
-    def get_questionnaire_records(self, title):
+    def get_questionnaire_records(self, title, target_student_id=None):
         # 1. 查找问卷ID
         self.cursor.execute("SELECT questionnaire_id FROM questionnaire WHERE title=%s", (title,))
         q_row = self.cursor.fetchone()
@@ -258,12 +258,21 @@ class TagRuleEngine:
         # 2. 获取所有记录
         # 注意：这里假设每个学生只有一条记录，或者取最新的一条
         # 如果有多次提交，通常取最新的一次
-        self.cursor.execute("""
+        
+        sql = """
             SELECT student_id, raw_result_json 
             FROM questionnaire_record 
             WHERE questionnaire_id=%s
-            ORDER BY submit_time ASC
-        """, (qid,))
+        """
+        params = [qid]
+        
+        if target_student_id:
+            sql += " AND student_id=%s"
+            params.append(target_student_id)
+            
+        sql += " ORDER BY submit_time ASC"
+
+        self.cursor.execute(sql, tuple(params))
         
         rows = self.cursor.fetchall()
         
@@ -278,10 +287,15 @@ class TagRuleEngine:
     # ===============================
     # aggregate 类型
     # ===============================
-    def handle_aggregate(self, tag, rule):
+    def handle_aggregate(self, tag, rule, target_student_id=None):
+        where_clause = ""
+        if target_student_id:
+            where_clause = f"WHERE student_id = {target_student_id}"
+
         sql = f"""
             SELECT student_id, {rule['aggregate_func'].upper()}({rule['field']}) as value
             FROM {rule['source_table']}
+            {where_clause}
             GROUP BY student_id
         """
 
@@ -294,7 +308,7 @@ class TagRuleEngine:
     # ===============================
     # formula 类型
     # ===============================
-    def handle_formula(self, tag, rule):
+    def handle_formula(self, tag, rule, target_student_id=None):
         operations = rule["operations"]
         operator = rule["operator"]
 
@@ -302,10 +316,15 @@ class TagRuleEngine:
         for op in operations:
             sql_parts.append(f"{op['func'].upper()}({op['field']})")
 
+        where_clause = ""
+        if target_student_id:
+            where_clause = f"WHERE student_id = {target_student_id}"
+
         sql = f"""
             SELECT student_id, 
             ({sql_parts[0]} {operator} {sql_parts[1]}) as value
             FROM {rule['source_table']}
+            {where_clause}
             GROUP BY student_id
         """
 
@@ -318,7 +337,7 @@ class TagRuleEngine:
     # ===============================
     # threshold 类型
     # ===============================
-    def handle_threshold(self, tag, rule):
+    def handle_threshold(self, tag, rule, target_student_id=None):
         base_tag = rule["base_tag"]
 
         # 获取tag_id
@@ -330,11 +349,18 @@ class TagRuleEngine:
         base_tag_id = base_tag_row["tag_id"]
 
         # 获取学生原始值
-        self.cursor.execute("""
+        sql = """
             SELECT student_id, tag_value
             FROM student_tag
             WHERE tag_id=%s
-        """, (base_tag_id,))
+        """
+        params = [base_tag_id]
+
+        if target_student_id:
+            sql += " AND student_id=%s"
+            params.append(target_student_id)
+
+        self.cursor.execute(sql, tuple(params))
 
         students = self.cursor.fetchall()
 

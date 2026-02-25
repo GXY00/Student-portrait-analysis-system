@@ -69,7 +69,7 @@
               <span class="dimension-label">维度：</span>
               <div class="btn-group">
                 <button
-                  v-for="(label, key) in dimensionMap"
+                  v-for="(label, key) in visibleDimensions"
                   :key="key"
                   :class="['dim-btn', { active: currentDimension === key }]"
                   @click="currentDimension = key"
@@ -84,20 +84,53 @@
           <div class="container">
             <!-- 图表区域 -->
             <div class="dimension-content">
-              <div v-if="currentDimension === 'student'" class="student-tags-container">
-                <div v-if="tags.length === 0" class="no-tags">
-                  暂无标签数据，请点击生成按钮获取最新画像。
+              <div v-if="currentDimension === 'student'" class="student-view-container">
+                <!-- 老师视图：左侧列表 -->
+                <div v-if="['teacher', 'admin'].includes(userRole)" class="student-list-sidebar">
+                   <div class="sidebar-header">
+                     <span>学生列表</span>
+                   </div>
+                   <div v-if="loadingStudents" class="loading-text">加载中...</div>
+                   <ul v-else class="student-list">
+                     <li
+                       v-for="s in studentList"
+                       :key="s.student_id"
+                       class="student-item"
+                       :class="{active: selectedStudent && selectedStudent.student_id === s.student_id}"
+                       @click="selectStudent(s)"
+                     >
+                       <div class="s-info-row">
+                         <span class="s-name">{{ s.name }}</span>
+                         <span class="s-class-badge" v-if="s.class_name">{{ s.class_name }}</span>
+                       </div>
+                       <span class="s-no">{{ s.student_no }}</span>
+                     </li>
+                   </ul>
                 </div>
 
-                <div class="tags-grid">
-                  <div v-for="tag in tags" :key="tag.tag_name" class="tag-card" :class="getTagClass(tag)">
-                    <div class="tag-header-row">
-                      <span class="tag-name">{{ tag.tag_name }}</span>
-                      <div class="info-icon-wrapper" :title="tag.description">
-                        <svg t="1771899969833" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5242" width="30" height="30"><path d="M518.542222 284.444444a145.066667 145.066667 0 0 0-108.373333 40.106667A144.213333 144.213333 0 0 0 369.777778 431.786667h66.275555a105.813333 105.813333 0 0 1 16.782223-64.568889A70.257778 70.257778 0 0 1 514.844444 341.333333a71.111111 71.111111 0 0 1 52.622223 18.773334 72.248889 72.248889 0 0 1 18.204444 51.2 73.955556 73.955556 0 0 1-16.782222 45.511111l-10.524445 11.946666a343.324444 343.324444 0 0 0-71.395555 77.653334 132.266667 132.266667 0 0 0-11.946667 59.448889v10.524444H540.444444v-10.524444a85.333333 85.333333 0 0 1 9.955556-41.813334 108.657778 108.657778 0 0 1 25.6-31.857777A611.84 611.84 0 0 0 630.613333 483.555556a123.164444 123.164444 0 0 0 23.608889-76.8 113.777778 113.777778 0 0 0-36.977778-89.6A142.222222 142.222222 0 0 0 518.542222 284.444444z m-10.524444 366.08a41.813333 41.813333 0 0 0-31.857778 12.515556 40.106667 40.106667 0 0 0-13.653333 31.857778 46.08 46.08 0 0 0 45.511111 44.657778 48.924444 48.924444 0 0 0 32.426666-12.231112 44.088889 44.088889 0 0 0 13.084445-32.426666A40.96 40.96 0 0 0 540.444444 662.755556a44.942222 44.942222 0 0 0-33.28-12.515556z" p-id="5243" fill="#cdcdcd"></path><path d="M512 56.888889A455.111111 455.111111 0 1 1 56.888889 512 455.111111 455.111111 0 0 1 512 56.888889m0-56.888889a512 512 0 1 0 512 512A512 512 0 0 0 512 0z" p-id="5244" fill="#cdcdcd"></path></svg>
+                <!-- 画像显示区域 -->
+                <div class="student-tags-wrapper" :class="{'full-width': userRole === 'student'}">
+                  <div v-if="['teacher', 'admin'].includes(userRole) && !selectedStudent" class="empty-selection">
+                    <div class="empty-tips">
+                       请在左侧选择一个学生查看画像
+                    </div>
+                  </div>
+
+                  <div v-else class="tags-grid-wrapper">
+                    <div v-if="tags.length === 0" class="no-tags">
+                      暂无标签数据，请点击生成按钮获取最新画像。
+                    </div>
+                    <div v-else class="tags-grid">
+                      <div v-for="tag in tags" :key="tag.tag_name" class="tag-card" :class="getTagClass(tag)">
+                        <div class="tag-header-row">
+                          <span class="tag-name">{{ tag.tag_name }}</span>
+                          <div class="info-icon-wrapper" :title="tag.description">
+                            <svg t="1771899969833" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5242" width="30" height="30"><path d="M518.542222 284.444444a145.066667 145.066667 0 0 0-108.373333 40.106667A144.213333 144.213333 0 0 0 369.777778 431.786667h66.275555a105.813333 105.813333 0 0 1 16.782223-64.568889A70.257778 70.257778 0 0 1 514.844444 341.333333a71.111111 71.111111 0 0 1 52.622223 18.773334 72.248889 72.248889 0 0 1 18.204444 51.2 73.955556 73.955556 0 0 1-16.782222 45.511111l-10.524445 11.946666a343.324444 343.324444 0 0 0-71.395555 77.653334 132.266667 132.266667 0 0 0-11.946667 59.448889v10.524444H540.444444v-10.524444a85.333333 85.333333 0 0 1 9.955556-41.813334 108.657778 108.657778 0 0 1 25.6-31.857777A611.84 611.84 0 0 0 630.613333 483.555556a123.164444 123.164444 0 0 0 23.608889-76.8 113.777778 113.777778 0 0 0-36.977778-89.6A142.222222 142.222222 0 0 0 518.542222 284.444444z m-10.524444 366.08a41.813333 41.813333 0 0 0-31.857778 12.515556 40.106667 40.106667 0 0 0-13.653333 31.857778 46.08 46.08 0 0 0 45.511111 44.657778 48.924444 48.924444 0 0 0 32.426666-12.231112 44.088889 44.088889 0 0 0 13.084445-32.426666A40.96 40.96 0 0 0 540.444444 662.755556a44.942222 44.942222 0 0 0-33.28-12.515556z" p-id="5243" fill="#cdcdcd"></path><path d="M512 56.888889A455.111111 455.111111 0 1 1 56.888889 512 455.111111 455.111111 0 0 1 512 56.888889m0-56.888889a512 512 0 1 0 512 512A512 512 0 0 0 512 0z" p-id="5244" fill="#cdcdcd"></path></svg>
+                          </div>
+                        </div>
+                        <div class="tag-value">{{ formatValue(tag.tag_value) }}</div>
                       </div>
                     </div>
-                    <div class="tag-value">{{ formatValue(tag.tag_value) }}</div>
                   </div>
                 </div>
               </div>
@@ -169,11 +202,13 @@ export default {
       dimensionMap: {
         student: '学生',
         class: '班级',
-        grade: '年级',
-        school: '学校'
+        grade: '年级'
       },
       tags: [],
-      loadingTags: false
+      loadingTags: false,
+      studentList: [],
+      selectedStudent: null,
+      loadingStudents: false
     }
   },
   mounted () {
@@ -182,21 +217,46 @@ export default {
     this.updateTime()
     this.timer = setInterval(this.updateTime, 1000)
 
-    // 如果是学生且处于学生维度，加载标签
     if (this.currentDimension === 'student') {
-      this.fetchTags()
+      if (this.userRole === 'student') {
+        this.fetchTags()
+      } else if (['teacher', 'admin'].includes(this.userRole)) {
+        this.fetchStudentList()
+      }
     }
   },
   watch: {
     currentDimension (val) {
       if (val === 'student') {
-        this.fetchTags()
+        if (this.userRole === 'student') {
+          this.fetchTags()
+        } else if (['teacher', 'admin'].includes(this.userRole)) {
+          if (this.studentList.length === 0) {
+            this.fetchStudentList()
+          }
+        }
       }
     }
   },
   beforeDestroy () {
     if (this.timer) {
       clearInterval(this.timer)
+    }
+  },
+  computed: {
+    visibleDimensions () {
+      const map = {}
+      if (this.dimensionMap.student) map.student = this.dimensionMap.student
+
+      if (['teacher', 'admin'].includes(this.userRole)) {
+        if (this.dimensionMap.class) map.class = this.dimensionMap.class
+      }
+
+      if (this.userRole === 'admin') {
+        if (this.dimensionMap.grade) map.grade = this.dimensionMap.grade
+      }
+
+      return map
     }
   },
   methods: {
@@ -241,13 +301,45 @@ export default {
       }).catch(err => console.error('Logout logging failed', err))
     },
     getTagClass (tag) {
+      const val = String(tag.tag_value || '')
+      if (val.includes('严重') || val.includes('极高') || val.includes('危险') || val.includes('不及格')) return 'tag-danger'
+      if (val.includes('偏科') || val.includes('警告') || val.includes('中等') || val.includes('需关注')) return 'tag-warning'
+      if (val.includes('优秀') || val.includes('良好') || val.includes('正常') || val.includes('合格')) return 'tag-success'
+
       if (tag.tag_type === '等级') return 'tag-level'
       return 'tag-quant'
     },
-    async fetchTags () {
-      const username = this.username
+    async fetchStudentList () {
+      this.loadingStudents = true
       try {
-        const res = await fetch(`http://localhost:5000/api/v1/tags/student?username=${username}`)
+        const res = await fetch(`http://localhost:5000/api/v1/teacher/students?username=${this.username}`)
+        const data = await res.json()
+        if (data.success) {
+          this.studentList = data.data
+        } else {
+          console.error('获取学生列表失败:', data.msg)
+        }
+      } catch (error) {
+        console.error('获取学生列表失败', error)
+      } finally {
+        this.loadingStudents = false
+      }
+    },
+    selectStudent (student) {
+      this.selectedStudent = student
+      this.fetchTags(student.student_id)
+    },
+    async fetchTags (targetId = null) {
+      const username = this.username
+      let url = `http://localhost:5000/api/v1/tags/student?username=${username}`
+      if (targetId) {
+        url += `&student_id=${targetId}`
+      } else if (this.selectedStudent) {
+        url += `&student_id=${this.selectedStudent.student_id}`
+      }
+
+      try {
+        const res = await fetch(url)
         const data = await res.json()
         if (data.success) {
           this.tags = data.data
@@ -275,17 +367,33 @@ export default {
       return num.toFixed(2)
     },
     async generateTags () {
+      if (this.loadingTags) return
       this.loadingTags = true
+
+      const payload = { username: this.username }
+      if (['teacher', 'admin'].includes(this.userRole)) {
+        if (!this.selectedStudent) {
+          alert('请先选择一个学生')
+          this.loadingTags = false
+          return
+        }
+        payload.student_id = this.selectedStudent.student_id
+      }
+
       try {
         const res = await fetch('http://localhost:5000/api/v1/tags/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: this.username })
+          body: JSON.stringify(payload)
         })
         const data = await res.json()
         if (data.success) {
-          alert('标签生成成功')
-          this.fetchTags()
+          alert(data.msg || '标签生成成功')
+          if (this.userRole === 'student') {
+            this.fetchTags()
+          } else if (this.selectedStudent) {
+            this.fetchTags(this.selectedStudent.student_id)
+          }
         } else {
           alert('生成失败: ' + data.msg)
         }
@@ -317,10 +425,10 @@ export default {
 .tags-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 43px;
+  gap: 20px 50px;
 }
 .tag-card {
-  flex: 0 0 200px;
+  flex: 0 0 180px;
   background: white;
   border-radius: 8px;
   padding: 12px; /* 稍微减少 padding */
@@ -355,6 +463,31 @@ export default {
 /* 等级标签样式覆盖 */
 .tag-level .tag-value {
   color: #FF9800;
+}
+
+/* Color Coding for Tags */
+.tag-danger {
+  background-color: #ffe6e6 !important;
+  border: 1px solid #ff4d4f !important;
+}
+.tag-danger .tag-value {
+  color: #cf1322 !important;
+}
+
+.tag-warning {
+  background-color: #fffbe6 !important;
+  border: 1px solid #faad14 !important;
+}
+.tag-warning .tag-value {
+  color: #d48806 !important;
+}
+
+.tag-success {
+  background-color: #f6ffed !important;
+  border: 1px solid #52c41a !important;
+}
+.tag-success .tag-value {
+  color: #389e0d !important;
 }
 </style>
 
@@ -674,5 +807,119 @@ export default {
 
 .modal-btn.confirm-logout:hover {
   background-color: #cc0000;
+}
+
+/* Student View Layout */
+.student-view-container {
+  display: flex;
+  height: 100%;
+  min-height: 600px; /* Ensure height for sidebar */
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  /* box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1); */
+}
+
+.student-list-sidebar {
+  width: 280px;
+  border-right: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8f9fa;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 16px 20px;
+  font-weight: 600;
+  font-size: 16px;
+  color: #333;
+  background-color: #fff;
+  border-bottom: 1px solid #eee;
+}
+
+.student-list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.student-list::-webkit-scrollbar {
+  width: 6px;
+}
+.student-list::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+  border-radius: 3px;
+}
+
+.student-item {
+  padding: 12px 20px;
+  cursor: pointer;
+  border-bottom: 1px solid #f5f5f5;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.student-item:hover {
+  background-color: #ecf5ff;
+}
+
+.student-item.active {
+  background-color: #e6f7ff;
+  border-left: 4px solid #1890ff;
+  padding-left: 16px; /* Adjust for border */
+}
+
+.s-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.s-name {
+  font-weight: 500;
+  color: #303133;
+  font-size: 15px;
+}
+
+.s-class-badge {
+  font-size: 12px;
+  background-color: #f0f2f5;
+  color: #909399;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.s-no {
+  color: #909399;
+  font-size: 12px;
+}
+
+.student-tags-wrapper {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background-color: #fff;
+}
+
+.student-tags-wrapper.full-width {
+  width: 100%;
+}
+
+.empty-selection {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #999;
+  font-size: 16px;
+}
+
+.tags-grid-wrapper {
+  width: 100%;
 }
 </style>
