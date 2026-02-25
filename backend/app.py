@@ -2,7 +2,7 @@ import random
 from datetime import datetime
 from flask import Flask, render_template, send_from_directory, session, make_response, request, jsonify, g
 from flask_cors import CORS
-from captcha_utils import CaptchaGenerator # type: ignore
+from captcha import CaptchaGenerator # type: ignore
 import io
 import base64
 from flask import Response
@@ -13,7 +13,6 @@ import pymysql
 from pymysql.cursors import DictCursor
 import json
 from tag_rule_engine import TagRuleEngine
-from class_tag_rule_engine import ClassTagRuleEngine
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 dist_dir = os.path.join(base_dir, '../bishe/dist')
@@ -419,273 +418,52 @@ def generate_tags():
         log_operation(username or 'system', '生成学生标签', 0, user_id)
         return jsonify({"success": False, "msg": f"标签生成失败: {str(e)}"}), 500
 
-@app.route('/api/v1/teacher/my_students', methods=['GET'])
-def get_teacher_students():
-    username = request.args.get('username')
-    if not username:
-        return jsonify({"success": False, "msg": "用户名不能为空"}), 400
-    
-    try:
-        # 1. 获取老师信息
-        user_sql = "SELECT user_id, role_id FROM user WHERE username = %s"
-        user = query_db(user_sql, (username,), one=True)
-        if not user or user['role_id'] != 2: # 2 is teacher
-            # 如果是管理员(3)，可能也需要查看所有学生
-            if user and user['role_id'] == 3:
-                 # 管理员查看所有学生
-                 students_sql = """
-                    SELECT s.student_id, s.student_no, s.stu_name, s.gender, c.class_name
-                    FROM student s
-                    LEFT JOIN class c ON s.class_id = c.class_id
-                    ORDER BY s.student_no
-                 """
-                 students = query_db(students_sql)
-                 return jsonify({"success": True, "data": students}), 200
-            
-            return jsonify({"success": False, "msg": "用户不是教师或管理员"}), 403
-            
-        # 教师: 获取 class_id
-        teacher_sql = "SELECT class_id FROM teacher WHERE user_id = %s"
-        teacher = query_db(teacher_sql, (user['user_id'],), one=True)
-        
-        students = []
-        if teacher and teacher['class_id']:
-            # 返回该班级的学生
-            students_sql = """
-                SELECT s.student_id, s.student_no, s.stu_name, s.gender, c.class_name
-                FROM student s
-                LEFT JOIN class c ON s.class_id = c.class_id
-                WHERE s.class_id = %s
-                ORDER BY s.student_no
-            """
-            students = query_db(students_sql, (teacher['class_id'],))
-        else:
-            # 如果老师没有绑定班级，是否返回所有学生？或者空？
-            # 暂时返回空，或者可以约定返回所有
-            # 假设返回所有
-            students_sql = """
-                SELECT s.student_id, s.student_no, s.stu_name, s.gender, c.class_name
-                FROM student s
-                LEFT JOIN class c ON s.class_id = c.class_id
-                ORDER BY s.student_no
-            """
-            students = query_db(students_sql)
-            
-        return jsonify({"success": True, "data": students}), 200
-        
-    except Exception as e:
-        print(f"Error getting students: {e}")
-        return jsonify({"success": False, "msg": "获取学生列表失败"}), 500
-
-@app.route('/api/v1/tags/generate_single', methods=['POST'])
-def generate_single_student_tags():
-    data = request.get_json()
-    student_id = data.get('student_id')
-    operator_username = data.get('operator_username')
-    
-    if not student_id:
-        return jsonify({"success": False, "msg": "学生ID不能为空"}), 400
-        
-    try:
-        # 获取学生姓名用于日志
-        stu = query_db("SELECT stu_name FROM student WHERE student_id = %s", (student_id,), one=True)
-        stu_name = stu['stu_name'] if stu else str(student_id)
-        
-        rule_path = os.path.join(base_dir, 'stu_rule.json')
-        engine = TagRuleEngine(DB_CONFIG, rule_file=rule_path)
-        # 调用带 student_id 的 execute_all
-        engine.execute_all(student_id=student_id)
-        engine.close()
-        
-        # 记录日志
-        log_content = f"生成学生画像: {stu_name}"
-        # 获取操作者 user_id
-        op_user_id = None
-        if operator_username:
-            u = query_db("SELECT user_id FROM user WHERE username = %s", (operator_username,), one=True)
-            if u: op_user_id = u['user_id']
-            
-        log_operation(operator_username or 'system', log_content, 1, op_user_id)
-        
-        return jsonify({"success": True, "msg": f"学生 {stu_name} 画像生成成功"}), 200
-    except Exception as e:
-        print(f"Generate single error: {e}")
-        return jsonify({"success": False, "msg": f"画像生成失败: {str(e)}"}), 500
-
 @app.route('/api/v1/tags/student', methods=['GET'])
 def get_student_tags():
     username = request.args.get('username')
-    student_id_param = request.args.get('student_id')
-    
-    if not username and not student_id_param:
-        return jsonify({"success": False, "msg": "参数缺失"}), 400
+    if not username:
+        return jsonify({"success": False, "msg": "用户名不能为空"}), 400
         
     try:
-        target_student_id = None
-        
-        if student_id_param:
-            target_student_id = student_id_param
-        else:
-            # 通过 username 查找
-            user = query_db("SELECT user_id, role_id FROM user WHERE username = %s", (username,), one=True)
-            if not user:
-                return jsonify({"success": False, "msg": "用户不存在"}), 404
-                
-            if user['role_id'] == 1: # 学生
-                stu = query_db("SELECT student_id FROM student WHERE user_id = %s", (user['user_id'],), one=True)
-                if stu: target_student_id = stu['student_id']
-            else:
-                return jsonify({"success": False, "msg": "该接口仅供学生查询自己，或指定 student_id"}), 403
-        
-        if not target_student_id:
-            return jsonify({"success": False, "msg": "未找到对应的学生信息"}), 404
+        # 获取 user_id 和 role_id
+        user = query_db("SELECT user_id, role_id FROM user WHERE username = %s", (username,), one=True)
+        if not user:
+            return jsonify({"success": False, "msg": "用户不存在"}), 404
             
+        student_id = None
+        
+        # 如果是学生，直接查询自己的 tags
+        if user['role_id'] == 1:
+            student = query_db("SELECT student_id FROM student WHERE user_id = %s", (user['user_id'],), one=True)
+            if student:
+                student_id = student['student_id']
+        else:
+            # 如果是老师或管理员，可能通过参数传递 student_id，或者查看特定学生
+            # 目前简化逻辑：如果是老师/管理员，暂时不返回标签，或者需要前端传 student_id
+            # 假设前端总是传当前登录用户的 username。如果是老师，暂时看不到自己的标签（老师没有标签）
+            # 但如果需求是 "首页展示"，可能是展示统计信息？
+            # 用户说 "利用json规则给学生生成标签,同时在前端页面也就是首页展示出来"
+            # 如果登录的是老师，也许想看某个学生的标签？
+            # 让我们假设目前只支持学生看自己的标签。
+            return jsonify({"success": True, "data": []}), 200
+
+        if not student_id:
+             return jsonify({"success": False, "msg": "未找到关联的学生信息"}), 404
+             
         # 查询标签
+        # 关联 tag 表获取 tag_name, description, tag_type
         sql = """
-            SELECT tag_name, tag_value, update_time
-            FROM student_tag t
-            JOIN tag tm ON t.tag_id = tm.tag_id
-            WHERE t.student_id = %s
+            SELECT t.tag_name, st.tag_value, t.description, t.tag_type, t.tag_level
+            FROM student_tag st
+            JOIN tag t ON st.tag_id = t.tag_id
+            WHERE st.student_id = %s
         """
-        tags = query_db(sql, (target_student_id,))
+        tags = query_db(sql, (student_id,))
         
         return jsonify({"success": True, "data": tags}), 200
         
     except Exception as e:
         return jsonify({"success": False, "msg": f"获取标签失败: {str(e)}"}), 500
-
-# ===============================
-# 班级标签接口
-# ===============================
-
-
-
-# ===============================
-# 班级标签生成与获取接口
-# ===============================
-
-@app.route('/api/v1/class/list', methods=['GET'])
-def get_class_list():
-    """获取班级列表"""
-    try:
-        sql = "SELECT class_id, class_name, grade FROM class ORDER BY grade, class_name"
-        classes = query_db(sql)
-        return jsonify({"success": True, "data": classes}), 200
-    except Exception as e:
-        return jsonify({"success": False, "msg": f"获取班级列表失败: {str(e)}"}), 500
-
-@app.route('/api/v1/tags/class/generate', methods=['POST'])
-def generate_class_tags():
-    """生成所有班级标签"""
-    data = request.get_json()
-    username = data.get('username')
-    
-    user_id = None
-    if username:
-        user = query_db("SELECT user_id FROM user WHERE username = %s", (username,), one=True)
-        if user:
-            user_id = user['user_id']
-            
-    try:
-        rule_path = os.path.join(base_dir, 'class_rule.json')
-        engine = ClassTagRuleEngine(DB_CONFIG, rule_file=rule_path)
-        engine.execute_all()
-        engine.close()
-        
-        log_operation(username or 'system', '生成班级标签', 1, user_id)
-        return jsonify({"success": True, "msg": "班级标签生成成功"}), 200
-    except Exception as e:
-        log_operation(username or 'system', '生成班级标签', 0, user_id)
-        return jsonify({"success": False, "msg": f"班级标签生成失败: {str(e)}"}), 500
-
-@app.route('/api/v1/tags/class/generate_single', methods=['POST'])
-def generate_single_class_tags():
-    """生成单个班级标签"""
-    data = request.get_json()
-    class_id = data.get('class_id')
-    operator_username = data.get('operator_username')
-    
-    if not class_id:
-        return jsonify({"success": False, "msg": "班级ID不能为空"}), 400
-        
-    try:
-        # 获取班级名称用于日志
-        cls = query_db("SELECT class_name FROM class WHERE class_id = %s", (class_id,), one=True)
-        class_name = cls['class_name'] if cls else str(class_id)
-        
-        rule_path = os.path.join(base_dir, 'class_rule.json')
-        engine = ClassTagRuleEngine(DB_CONFIG, rule_file=rule_path)
-        engine.execute_all(class_id=class_id)
-        engine.close()
-        
-        # 记录日志
-        log_content = f"生成班级画像: {class_name}"
-        op_user_id = None
-        if operator_username:
-            u = query_db("SELECT user_id FROM user WHERE username = %s", (operator_username,), one=True)
-            if u: op_user_id = u['user_id']
-            
-        log_operation(operator_username or 'system', log_content, 1, op_user_id)
-        
-        return jsonify({"success": True, "msg": f"班级 {class_name} 画像生成成功"}), 200
-    except Exception as e:
-        return jsonify({"success": False, "msg": f"画像生成失败: {str(e)}"}), 500
-
-@app.route('/api/v1/tags/class', methods=['GET'])
-def get_class_tags():
-    """获取班级标签"""
-    class_id = request.args.get('class_id')
-    
-    if not class_id:
-        return jsonify({"success": False, "msg": "班级ID不能为空"}), 400
-        
-    try:
-        # 加载规则文件获取元数据
-        rule_path = os.path.join(base_dir, 'class_rule.json')
-        tag_metadata = {}
-        if os.path.exists(rule_path):
-            try:
-                with open(rule_path, 'r', encoding='utf-8') as f:
-                    rules = json.load(f)
-                    for tag_def in rules.get('tags', []):
-                        tag_metadata[tag_def['tag_name']] = {
-                            'tag_type': tag_def.get('tag_type', '数值'),
-                            'description': tag_def.get('description', '')
-                        }
-            except Exception as e:
-                print(f"加载班级规则失败: {e}")
-
-        # 查询标签
-        sql = """
-            SELECT tag_name, tag_value, update_time
-            FROM class_tag
-            WHERE class_id = %s
-        """
-        tags = query_db(sql, (class_id,))
-        
-        # tag_value 是 JSON 格式，pymysql 可能会返回字符串或字典
-        # 如果是字符串，需要解析
-        if tags is None:
-            tags = []
-        for tag in tags:
-            if isinstance(tag['tag_value'], str):
-                try:
-                    tag['tag_value'] = json.loads(tag['tag_value'])
-                except:
-                    pass
-            
-            # 添加元数据
-            meta = tag_metadata.get(tag['tag_name'], {})
-            tag['tag_type'] = meta.get('tag_type', '数值')
-            tag['description'] = meta.get('description', '')
-        
-        return jsonify({"success": True, "data": tags}), 200
-        
-    except Exception as e:
-        return jsonify({"success": False, "msg": f"获取班级标签失败: {str(e)}"}), 500
-
-# 旧接口保留但被覆盖
-# def get_student_tags_old():
 
 @app.route('/api/v1/user/change_password', methods=['POST'])
 def change_password():
