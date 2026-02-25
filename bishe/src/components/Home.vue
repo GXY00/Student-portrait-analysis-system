@@ -56,8 +56,8 @@
             <div style="display: flex; align-items: center;">
               <div class="dashboard-title">画像查看</div>
               <button
-                v-if="currentDimension === 'student'"
-                @click="generateTags"
+                v-if="currentDimension === 'student' || currentDimension === 'class'"
+                @click="currentDimension === 'student' ? generateTags() : generateClassTags()"
                 class="generate-btn"
                 :disabled="loadingTags"
                 style="margin-left: 15px;"
@@ -118,7 +118,7 @@
                         <svg t="1771899969833" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5242" width="30" height="30"><path d="M518.542222 284.444444a145.066667 145.066667 0 0 0-108.373333 40.106667A144.213333 144.213333 0 0 0 369.777778 431.786667h66.275555a105.813333 105.813333 0 0 1 16.782223-64.568889A70.257778 70.257778 0 0 1 514.844444 341.333333a71.111111 71.111111 0 0 1 52.622223 18.773334 72.248889 72.248889 0 0 1 18.204444 51.2 73.955556 73.955556 0 0 1-16.782222 45.511111l-10.524445 11.946666a343.324444 343.324444 0 0 0-71.395555 77.653334 132.266667 132.266667 0 0 0-11.946667 59.448889v10.524444H540.444444v-10.524444a85.333333 85.333333 0 0 1 9.955556-41.813334 108.657778 108.657778 0 0 1 25.6-31.857777A611.84 611.84 0 0 0 630.613333 483.555556a123.164444 123.164444 0 0 0 23.608889-76.8 113.777778 113.777778 0 0 0-36.977778-89.6A142.222222 142.222222 0 0 0 518.542222 284.444444z m-10.524444 366.08a41.813333 41.813333 0 0 0-31.857778 12.515556 40.106667 40.106667 0 0 0-13.653333 31.857778 46.08 46.08 0 0 0 45.511111 44.657778 48.924444 48.924444 0 0 0 32.426666-12.231112 44.088889 44.088889 0 0 0 13.084445-32.426666A40.96 40.96 0 0 0 540.444444 662.755556a44.942222 44.942222 0 0 0-33.28-12.515556z" p-id="5243" fill="#cdcdcd"></path><path d="M512 56.888889A455.111111 455.111111 0 1 1 56.888889 512 455.111111 455.111111 0 0 1 512 56.888889m0-56.888889a512 512 0 1 0 512 512A512 512 0 0 0 512 0z" p-id="5244" fill="#cdcdcd"></path></svg>
                       </div>
                     </div>
-                    <div class="tag-value">{{ formatValue(tag.tag_value) }}</div>
+                    <div class="tag-value">{{ formatTagValue(tag) }}</div>
                   </div>
                 </div>
               </div>
@@ -139,6 +139,47 @@
                     </div>
                   </div>
                   <div class="tag-value">{{ formatValue(tag.tag_value) }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 班级维度的视图 -->
+            <div v-else-if="currentDimension === 'class'" class="teacher-student-view">
+              <div class="student-list-panel">
+                <div class="panel-header">班级列表</div>
+                <div v-if="loadingClasses" class="loading-text">加载中...</div>
+                <ul v-else class="student-list">
+                  <li
+                    v-for="cls in classList"
+                    :key="cls.class_id"
+                    class="student-item"
+                    :class="{ active: selectedClass && selectedClass.class_id === cls.class_id }"
+                    @click="selectClass(cls)"
+                  >
+                    <span class="stu-name">{{ cls.class_name }}</span>
+                  </li>
+                </ul>
+              </div>
+              <div class="student-detail-panel">
+                <div v-if="selectedClass" class="detail-header">
+                  <span>当前查看: {{ selectedClass.class_name }}</span>
+                </div>
+                <div v-if="!selectedClass" class="no-selection">
+                  请从左侧选择一个班级查看画像
+                </div>
+                <div v-else-if="classTags.length === 0" class="no-tags">
+                  该班级暂无标签数据，请点击上方“生成/更新标签”按钮。
+                </div>
+                <div v-else class="tags-grid">
+                  <div v-for="tag in classTags" :key="tag.tag_name" class="tag-card" :class="getTagClass(tag)">
+                    <div class="tag-header-row">
+                      <span class="tag-name">{{ tag.tag_name }}</span>
+                      <div class="info-icon-wrapper" :title="tag.description">
+                        <svg t="1771899969833" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5242" width="30" height="30"><path d="M518.542222 284.444444a145.066667 145.066667 0 0 0-108.373333 40.106667A144.213333 144.213333 0 0 0 369.777778 431.786667h66.275555a105.813333 105.813333 0 0 1 16.782223-64.568889A70.257778 70.257778 0 0 1 514.844444 341.333333a71.111111 71.111111 0 0 1 52.622223 18.773334 72.248889 72.248889 0 0 1 18.204444 51.2 73.955556 73.955556 0 0 1-16.782222 45.511111l-10.524445 11.946666a343.324444 343.324444 0 0 0-71.395555 77.653334 132.266667 132.266667 0 0 0-11.946667 59.448889v10.524444H540.444444v-10.524444a85.333333 85.333333 0 0 1 9.955556-41.813334 108.657778 108.657778 0 0 1 25.6-31.857777A611.84 611.84 0 0 0 630.613333 483.555556a123.164444 123.164444 0 0 0 23.608889-76.8 113.777778 113.777778 0 0 0-36.977778-89.6A142.222222 142.222222 0 0 0 518.542222 284.444444z m-10.524444 366.08a41.813333 41.813333 0 0 0-31.857778 12.515556 40.106667 40.106667 0 0 0-13.653333 31.857778 46.08 46.08 0 0 0 45.511111 44.657778 48.924444 48.924444 0 0 0 32.426666-12.231112 44.088889 44.088889 0 0 0 13.084445-32.426666A40.96 40.96 0 0 0 540.444444 662.755556a44.942222 44.942222 0 0 0-33.28-12.515556z" p-id="5243" fill="#cdcdcd"></path><path d="M512 56.888889A455.111111 455.111111 0 1 1 56.888889 512 455.111111 455.111111 0 0 1 512 56.888889m0-56.888889a512 512 0 1 0 512 512A512 512 0 0 0 512 0z" p-id="5244" fill="#cdcdcd"></path></svg>
+                      </div>
+                    </div>
+                    <div class="tag-value">{{ formatTagValue(tag) }}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -211,7 +252,11 @@ export default {
       loadingTags: false,
       studentList: [],
       selectedStudent: null,
-      loadingStudents: false
+      loadingStudents: false,
+      classList: [],
+      selectedClass: null,
+      classTags: [],
+      loadingClasses: false
     }
   },
   computed: {
@@ -259,6 +304,10 @@ export default {
           if (this.studentList.length === 0) {
             this.fetchStudentList()
           }
+        }
+      } else if (val === 'class') {
+        if (this.classList.length === 0) {
+          this.fetchClassList()
         }
       }
     }
@@ -360,8 +409,21 @@ export default {
         console.error('Fetch tags error:', err)
       }
     },
-    formatValue (val) {
+    formatTagValue (tag) {
+      const val = tag.tag_value
       if (val === null || val === undefined) return ''
+
+      // Handle distribution tags (object/array)
+      if (typeof val === 'object') {
+        return Object.entries(val).map(([k, v]) => `${k}: ${v}`).join(', ')
+      }
+
+      // Handle percentage
+      if (tag.tag_type === '比例') {
+        const num = parseFloat(val)
+        if (!isNaN(num)) return (num * 100).toFixed(2) + '%'
+      }
+
       // 尝试转换为数字
       const num = parseFloat(val)
       // 如果不是数字，或者包含非数字字符（如 "优"），返回原值
@@ -404,6 +466,76 @@ export default {
         if (data.success) {
           alert('标签生成成功')
           this.fetchTags()
+        } else {
+          alert('生成失败: ' + data.msg)
+        }
+      } catch (err) {
+        alert('生成请求失败')
+        console.error(err)
+      } finally {
+        this.loadingTags = false
+      }
+    },
+    async fetchClassList () {
+      this.loadingClasses = true
+      try {
+        const res = await fetch('http://localhost:5000/api/v1/class/list')
+        const data = await res.json()
+        if (data.success) {
+          this.classList = data.data
+        } else {
+          console.error('Fetch classes failed:', data.msg)
+        }
+      } catch (err) {
+        console.error('Fetch classes error:', err)
+      } finally {
+        this.loadingClasses = false
+      }
+    },
+    selectClass (cls) {
+      this.selectedClass = cls
+      this.fetchClassTags()
+    },
+    async fetchClassTags () {
+      if (!this.selectedClass) return
+      try {
+        const res = await fetch(`http://localhost:5000/api/v1/tags/class?class_id=${this.selectedClass.class_id}`)
+        const data = await res.json()
+        if (data.success) {
+          this.classTags = data.data
+        } else {
+          console.error('Fetch class tags failed:', data.msg)
+          this.classTags = []
+        }
+      } catch (err) {
+        console.error('Fetch class tags error:', err)
+      }
+    },
+    async generateClassTags () {
+      this.loadingTags = true
+      try {
+        let url = 'http://localhost:5000/api/v1/tags/class/generate'
+        let body = { username: this.username }
+
+        if (this.selectedClass) {
+          url = 'http://localhost:5000/api/v1/tags/class/generate_single'
+          body = {
+            class_id: this.selectedClass.class_id,
+            operator_username: this.username
+          }
+        }
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+        const data = await res.json()
+        if (data.success) {
+          alert('班级标签生成成功')
+          if (this.selectedClass) {
+            this.fetchClassTags()
+          }
         } else {
           alert('生成失败: ' + data.msg)
         }

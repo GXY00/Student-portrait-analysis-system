@@ -1,0 +1,169 @@
+{
+  "version": "2.0",
+  "description": "班级群体画像规则配置（基于学生标签聚合计算）",
+
+  "execution_order": [
+    "班级平均成绩",
+    "班级成绩离散度",
+    "班级偏科平均指数",
+    "班级学习动机水平",
+    "班级学习自律水平",
+    "班级心理健康指数",
+    "班级学习投入均值",
+
+    "班级成绩等级",
+    "班级两极分化程度",
+
+    "班级学习风格分布",
+    "班级心理风险比例",
+    "班级低动机比例"
+  ],
+
+  "tags": [
+
+    {
+      "tag_name": "班级平均成绩",
+      "tag_type": "数值",
+      "description": "班级所有学生平均成绩的均值",
+      "rule": {
+        "type": "class_aggregate",
+        "base_tag": "平均成绩",
+        "aggregate_func": "avg"
+      }
+    },
+
+    {
+      "tag_name": "班级成绩离散度",
+      "tag_type": "数值",
+      "description": "班级平均成绩的标准差，用于衡量两极分化",
+      "rule": {
+        "type": "class_aggregate",
+        "base_tag": "平均成绩",
+        "aggregate_func": "std"
+      }
+    },
+
+    {
+      "tag_name": "班级偏科平均指数",
+      "tag_type": "数值",
+      "description": "班级偏科指数的平均值",
+      "rule": {
+        "type": "class_aggregate",
+        "base_tag": "偏科指数",
+        "aggregate_func": "avg"
+      }
+    },
+
+    {
+      "tag_name": "班级学习动机水平",
+      "tag_type": "数值",
+      "description": "班级学习动机强度的平均水平",
+      "rule": {
+        "type": "class_aggregate",
+        "base_tag": "学习动机强度",
+        "aggregate_func": "avg"
+      }
+    },
+
+    {
+      "tag_name": "班级学习自律水平",
+      "tag_type": "数值",
+      "description": "班级学习自律指数的平均水平",
+      "rule": {
+        "type": "class_aggregate",
+        "base_tag": "学习自律指数",
+        "aggregate_func": "avg"
+      }
+    },
+
+    {
+      "tag_name": "班级心理健康指数",
+      "tag_type": "数值",
+      "description": "班级心理稳定性指数的平均值",
+      "rule": {
+        "type": "class_aggregate",
+        "base_tag": "心理稳定性指数",
+        "aggregate_func": "avg"
+      }
+    },
+
+    {
+      "tag_name": "班级学习投入均值",
+      "tag_type": "数值",
+      "description": "班级学习投入强度的平均值",
+      "rule": {
+        "type": "class_aggregate",
+        "base_tag": "学习投入强度",
+        "aggregate_func": "avg"
+      }
+    },
+
+    {
+      "tag_name": "班级成绩等级",
+      "tag_type": "等级",
+      "description": "根据班级平均成绩划分等级",
+      "rule": {
+        "type": "threshold",
+        "base_tag": "班级平均成绩",
+        "rules": [
+          { "min": 90, "label": "优秀班级" },
+          { "min": 80, "label": "良好班级" },
+          { "min": 70, "label": "中等班级" },
+          { "min": 60, "label": "需提升班级" },
+          { "min": 0,  "label": "重点帮扶班级" }
+        ]
+      }
+    },
+
+    {
+      "tag_name": "班级两极分化程度",
+      "tag_type": "等级",
+      "description": "根据班级成绩离散度判断两极分化程度",
+      "rule": {
+        "type": "threshold",
+        "base_tag": "班级成绩离散度",
+        "rules": [
+          { "max": 5, "label": "成绩结构均衡" },
+          { "max": 10, "label": "轻度分化" },
+          { "max": 15, "label": "明显分化" },
+          { "max": 100, "label": "严重两极分化" }
+        ]
+      }
+    },
+
+    {
+      "tag_name": "班级学习风格分布",
+      "tag_type": "分布",
+      "description": "统计班级内不同学习方式倾向人数分布",
+      "rule": {
+        "type": "class_distribution",
+        "base_tag": "学习方式倾向"
+      }
+    },
+
+    {
+      "tag_name": "班级心理风险比例",
+      "tag_type": "比例",
+      "description": "心理稳定性指数低于2.5的学生比例",
+      "rule": {
+        "type": "class_risk_ratio",
+        "base_tag": "心理稳定性指数",
+        "operator": "<",
+        "threshold": 2.5
+      }
+    },
+
+    {
+      "tag_name": "班级低动机比例",
+      "tag_type": "比例",
+      "description": "学习动机强度低于2.5的学生比例",
+      "rule": {
+        "type": "class_risk_ratio",
+        "base_tag": "学习动机强度",
+        "operator": "<",
+        "threshold": 2.5
+      }
+    }
+
+  ]
+}
