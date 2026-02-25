@@ -14,15 +14,15 @@ class TagRuleEngine:
     # ===============================
     # 主入口
     # ===============================
-    def execute_all(self):
+    def execute_all(self, student_id=None):
         self.sync_tags()
         execution_order = self.rule_config["execution_order"]
         tag_map = {tag["tag_name"]: tag for tag in self.rule_config["tags"]}
 
         for tag_name in execution_order:
             tag = tag_map[tag_name]
-            print(f"正在生成标签: {tag_name}")
-            self.execute_tag(tag)
+            # print(f"正在生成标签: {tag_name}")
+            self.execute_tag(tag, student_id)
 
         print("全部标签生成完成")
         self.conn.commit()
@@ -60,42 +60,42 @@ class TagRuleEngine:
     # ===============================
     # 执行单个标签
     # ===============================
-    def execute_tag(self, tag):
+    def execute_tag(self, tag, student_id=None):
         rule = tag["rule"]
         rule_type = rule["type"]
 
         if rule_type == "aggregate":
-            self.handle_aggregate(tag, rule)
+            self.handle_aggregate(tag, rule, student_id)
 
         elif rule_type == "formula":
-            self.handle_formula(tag, rule)
+            self.handle_formula(tag, rule, student_id)
 
         elif rule_type == "threshold":
-            self.handle_threshold(tag, rule)
+            self.handle_threshold(tag, rule, student_id)
             
         elif rule_type == "questionnaire_score":
-            self.handle_questionnaire_score(tag, rule)
+            self.handle_questionnaire_score(tag, rule, student_id)
             
         elif rule_type == "questionnaire_score_with_numeric":
-            self.handle_questionnaire_score_with_numeric(tag, rule)
+            self.handle_questionnaire_score_with_numeric(tag, rule, student_id)
             
         elif rule_type == "questionnaire_preference":
-            self.handle_questionnaire_preference(tag, rule)
+            self.handle_questionnaire_preference(tag, rule, student_id)
             
         elif rule_type == "questionnaire_numeric":
-            self.handle_questionnaire_numeric(tag, rule)
+            self.handle_questionnaire_numeric(tag, rule, student_id)
 
     # ===============================
     # 问卷评分类型 (questionnaire_score)
     # ===============================
-    def handle_questionnaire_score(self, tag, rule):
+    def handle_questionnaire_score(self, tag, rule, student_id=None):
         title = rule["questionnaire_title"]
         questions = rule["questions"]
         
         # 获取问卷记录
-        records = self.get_questionnaire_records(title)
+        records = self.get_questionnaire_records(title, student_id)
         
-        for student_id, raw_json in records.items():
+        for s_id, raw_json in records.items():
             total_score = 0
             count = 0
             
@@ -122,23 +122,23 @@ class TagRuleEngine:
                 
                 if count > 0:
                     avg_score = total_score / count
-                    self.save_student_tag(student_id, tag["tag_name"], avg_score)
+                    self.save_student_tag(s_id, tag["tag_name"], avg_score)
                     
             except Exception as e:
-                print(f"Error parsing record for student {student_id}: {e}")
+                print(f"Error parsing record for student {s_id}: {e}")
 
     # ===============================
     # 问卷评分+数值类型 (questionnaire_score_with_numeric)
     # ===============================
-    def handle_questionnaire_score_with_numeric(self, tag, rule):
+    def handle_questionnaire_score_with_numeric(self, tag, rule, student_id=None):
         title = rule["questionnaire_title"]
         likert_keys = rule["likert_questions"]
         numeric_keys = rule["numeric_fields"]
         weights = rule["weights"]
         
-        records = self.get_questionnaire_records(title)
+        records = self.get_questionnaire_records(title, student_id)
         
-        for student_id, raw_json in records.items():
+        for s_id, raw_json in records.items():
             try:
                 result_map = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
                 if not result_map:
@@ -174,21 +174,21 @@ class TagRuleEngine:
                 
                 # 加权计算
                 final_score = (likert_avg * weights.get("likert", 0.6)) + (numeric_avg * weights.get("numeric", 0.4))
-                self.save_student_tag(student_id, tag["tag_name"], final_score)
+                self.save_student_tag(s_id, tag["tag_name"], final_score)
                 
             except Exception as e:
-                print(f"Error parsing record for student {student_id}: {e}")
+                print(f"Error parsing record for student {s_id}: {e}")
 
     # ===============================
     # 问卷偏好类型 (questionnaire_preference)
     # ===============================
-    def handle_questionnaire_preference(self, tag, rule):
+    def handle_questionnaire_preference(self, tag, rule, student_id=None):
         title = rule["questionnaire_title"]
         mapping = rule["mapping"] # {"Q8": "独立学习型", ...}
         
-        records = self.get_questionnaire_records(title)
+        records = self.get_questionnaire_records(title, student_id)
         
-        for student_id, raw_json in records.items():
+        for s_id, raw_json in records.items():
             try:
                 result_map = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
                 if not result_map:
@@ -210,21 +210,21 @@ class TagRuleEngine:
                             pass
                 
                 if best_label:
-                    self.save_student_tag(student_id, tag["tag_name"], best_label)
+                    self.save_student_tag(s_id, tag["tag_name"], best_label)
                     
             except Exception as e:
-                print(f"Error parsing record for student {student_id}: {e}")
+                print(f"Error parsing record for student {s_id}: {e}")
 
     # ===============================
     # 问卷数值直接提取 (questionnaire_numeric)
     # ===============================
-    def handle_questionnaire_numeric(self, tag, rule):
+    def handle_questionnaire_numeric(self, tag, rule, student_id=None):
         title = rule["questionnaire_title"]
         field = rule["field"]
         
-        records = self.get_questionnaire_records(title)
+        records = self.get_questionnaire_records(title, student_id)
         
-        for student_id, raw_json in records.items():
+        for s_id, raw_json in records.items():
             try:
                 result_map = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
                 if not result_map:
@@ -235,17 +235,17 @@ class TagRuleEngine:
                     # 尝试转为数字，确保存储为数值形式
                     try:
                         num_val = float(val)
-                        self.save_student_tag(student_id, tag["tag_name"], num_val)
+                        self.save_student_tag(s_id, tag["tag_name"], num_val)
                     except ValueError:
-                        self.save_student_tag(student_id, tag["tag_name"], val)
+                        self.save_student_tag(s_id, tag["tag_name"], val)
                         
             except Exception as e:
-                print(f"Error parsing record for student {student_id}: {e}")
+                print(f"Error parsing record for student {s_id}: {e}")
 
     # ===============================
     # 辅助方法：获取问卷记录
     # ===============================
-    def get_questionnaire_records(self, title):
+    def get_questionnaire_records(self, title, student_id=None):
         # 1. 查找问卷ID
         self.cursor.execute("SELECT questionnaire_id FROM questionnaire WHERE title=%s", (title,))
         q_row = self.cursor.fetchone()
@@ -256,15 +256,19 @@ class TagRuleEngine:
         qid = q_row["questionnaire_id"]
         
         # 2. 获取所有记录
-        # 注意：这里假设每个学生只有一条记录，或者取最新的一条
-        # 如果有多次提交，通常取最新的一次
-        self.cursor.execute("""
+        sql = """
             SELECT student_id, raw_result_json 
             FROM questionnaire_record 
             WHERE questionnaire_id=%s
-            ORDER BY submit_time ASC
-        """, (qid,))
+        """
+        params = [qid]
+        if student_id:
+            sql += " AND student_id=%s"
+            params.append(student_id)
         
+        sql += " ORDER BY submit_time ASC"
+        
+        self.cursor.execute(sql, params)
         rows = self.cursor.fetchall()
         
         # 使用字典覆盖，保留最新的提交
@@ -278,14 +282,21 @@ class TagRuleEngine:
     # ===============================
     # aggregate 类型
     # ===============================
-    def handle_aggregate(self, tag, rule):
+    def handle_aggregate(self, tag, rule, student_id=None):
+        where_clause = ""
+        params = []
+        if student_id:
+            where_clause = "WHERE student_id = %s"
+            params.append(student_id)
+
         sql = f"""
             SELECT student_id, {rule['aggregate_func'].upper()}({rule['field']}) as value
             FROM {rule['source_table']}
+            {where_clause}
             GROUP BY student_id
         """
 
-        self.cursor.execute(sql)
+        self.cursor.execute(sql, params)
         results = self.cursor.fetchall()
 
         for row in results:
@@ -294,22 +305,29 @@ class TagRuleEngine:
     # ===============================
     # formula 类型
     # ===============================
-    def handle_formula(self, tag, rule):
+    def handle_formula(self, tag, rule, student_id=None):
         operations = rule["operations"]
         operator = rule["operator"]
 
         sql_parts = []
         for op in operations:
             sql_parts.append(f"{op['func'].upper()}({op['field']})")
+        
+        where_clause = ""
+        params = []
+        if student_id:
+            where_clause = "WHERE student_id = %s"
+            params.append(student_id)
 
         sql = f"""
             SELECT student_id, 
             ({sql_parts[0]} {operator} {sql_parts[1]}) as value
             FROM {rule['source_table']}
+            {where_clause}
             GROUP BY student_id
         """
 
-        self.cursor.execute(sql)
+        self.cursor.execute(sql, params)
         results = self.cursor.fetchall()
 
         for row in results:
@@ -318,7 +336,7 @@ class TagRuleEngine:
     # ===============================
     # threshold 类型
     # ===============================
-    def handle_threshold(self, tag, rule):
+    def handle_threshold(self, tag, rule, student_id=None):
         base_tag = rule["base_tag"]
 
         # 获取tag_id
@@ -330,12 +348,17 @@ class TagRuleEngine:
         base_tag_id = base_tag_row["tag_id"]
 
         # 获取学生原始值
-        self.cursor.execute("""
+        sql = """
             SELECT student_id, tag_value
             FROM student_tag
             WHERE tag_id=%s
-        """, (base_tag_id,))
+        """
+        params = [base_tag_id]
+        if student_id:
+            sql += " AND student_id=%s"
+            params.append(student_id)
 
+        self.cursor.execute(sql, params)
         students = self.cursor.fetchall()
 
         for stu in students:

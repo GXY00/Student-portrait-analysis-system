@@ -82,14 +82,35 @@
 
           <!-- 图表区域占位符 -->
           <div class="container">
-            <!-- 图表区域 -->
-            <div class="dimension-content">
-              <div v-if="currentDimension === 'student'" class="student-tags-container">
-                <div v-if="tags.length === 0" class="no-tags">
-                  暂无标签数据，请点击生成按钮获取最新画像。
+            <!-- 教师/管理员的学生列表视图 -->
+            <div v-if="currentDimension === 'student' && userRole !== 'student'" class="teacher-student-view">
+              <div class="student-list-panel">
+                <div class="panel-header">学生列表</div>
+                <div v-if="loadingStudents" class="loading-text">加载中...</div>
+                <ul v-else class="student-list">
+                  <li
+                    v-for="stu in studentList"
+                    :key="stu.student_id"
+                    class="student-item"
+                    :class="{ active: selectedStudent && selectedStudent.student_id === stu.student_id }"
+                    @click="selectStudent(stu)"
+                  >
+                    <span class="stu-no">{{ stu.student_no }}</span>
+                    <span class="stu-name">{{ stu.stu_name }}</span>
+                  </li>
+                </ul>
+              </div>
+              <div class="student-detail-panel">
+                <div v-if="selectedStudent" class="detail-header">
+                  <span>当前查看: {{ selectedStudent.stu_name }} ({{ selectedStudent.student_no }})</span>
                 </div>
-
-                <div class="tags-grid">
+                <div v-if="!selectedStudent" class="no-selection">
+                  请从左侧选择一个学生查看画像
+                </div>
+                <div v-else-if="tags.length === 0" class="no-tags">
+                  该学生暂无标签数据，请点击上方“生成/更新标签”按钮。
+                </div>
+                <div v-else class="tags-grid">
                   <div v-for="tag in tags" :key="tag.tag_name" class="tag-card" :class="getTagClass(tag)">
                     <div class="tag-header-row">
                       <span class="tag-name">{{ tag.tag_name }}</span>
@@ -101,9 +122,29 @@
                   </div>
                 </div>
               </div>
-              <div v-else class="dimension-placeholder">
-                {{ dimensionMap[currentDimension] }}
+            </div>
+
+            <!-- 学生角色的视图 (原样) -->
+            <div v-else-if="currentDimension === 'student'" class="dimension-content">
+              <div v-if="tags.length === 0" class="no-tags">
+                暂无标签数据，请点击生成按钮获取最新画像。
               </div>
+
+              <div class="tags-grid">
+                <div v-for="tag in tags" :key="tag.tag_name" class="tag-card" :class="getTagClass(tag)">
+                  <div class="tag-header-row">
+                    <span class="tag-name">{{ tag.tag_name }}</span>
+                    <div class="info-icon-wrapper" :title="tag.description">
+                      <svg t="1771899969833" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5242" width="30" height="30"><path d="M518.542222 284.444444a145.066667 145.066667 0 0 0-108.373333 40.106667A144.213333 144.213333 0 0 0 369.777778 431.786667h66.275555a105.813333 105.813333 0 0 1 16.782223-64.568889A70.257778 70.257778 0 0 1 514.844444 341.333333a71.111111 71.111111 0 0 1 52.622223 18.773334 72.248889 72.248889 0 0 1 18.204444 51.2 73.955556 73.955556 0 0 1-16.782222 45.511111l-10.524445 11.946666a343.324444 343.324444 0 0 0-71.395555 77.653334 132.266667 132.266667 0 0 0-11.946667 59.448889v10.524444H540.444444v-10.524444a85.333333 85.333333 0 0 1 9.955556-41.813334 108.657778 108.657778 0 0 1 25.6-31.857777A611.84 611.84 0 0 0 630.613333 483.555556a123.164444 123.164444 0 0 0 23.608889-76.8 113.777778 113.777778 0 0 0-36.977778-89.6A142.222222 142.222222 0 0 0 518.542222 284.444444z m-10.524444 366.08a41.813333 41.813333 0 0 0-31.857778 12.515556 40.106667 40.106667 0 0 0-13.653333 31.857778 46.08 46.08 0 0 0 45.511111 44.657778 48.924444 48.924444 0 0 0 32.426666-12.231112 44.088889 44.088889 0 0 0 13.084445-32.426666A40.96 40.96 0 0 0 540.444444 662.755556a44.942222 44.942222 0 0 0-33.28-12.515556z" p-id="5243" fill="#cdcdcd"></path><path d="M512 56.888889A455.111111 455.111111 0 1 1 56.888889 512 455.111111 455.111111 0 0 1 512 56.888889m0-56.888889a512 512 0 1 0 512 512A512 512 0 0 0 512 0z" p-id="5244" fill="#cdcdcd"></path></svg>
+                    </div>
+                  </div>
+                  <div class="tag-value">{{ formatValue(tag.tag_value) }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="dimension-placeholder">
+              {{ dimensionMap[currentDimension] }}
             </div>
           </div>
         </div>
@@ -166,14 +207,32 @@ export default {
       isConfigOpen: false,
       showLogoutModal: false,
       currentDimension: 'student',
-      dimensionMap: {
-        student: '学生',
-        class: '班级',
-        grade: '年级',
-        school: '学校'
-      },
       tags: [],
-      loadingTags: false
+      loadingTags: false,
+      studentList: [],
+      selectedStudent: null,
+      loadingStudents: false
+    }
+  },
+  computed: {
+    dimensionMap () {
+      const role = this.userRole
+      if (role === 'admin') {
+        return {
+          student: '学生',
+          class: '班级',
+          grade: '年级'
+        }
+      } else if (role === 'teacher') {
+        return {
+          student: '学生',
+          class: '班级'
+        }
+      } else {
+        return {
+          student: '学生'
+        }
+      }
     }
   },
   mounted () {
@@ -184,13 +243,23 @@ export default {
 
     // 如果是学生且处于学生维度，加载标签
     if (this.currentDimension === 'student') {
-      this.fetchTags()
+      if (this.userRole === 'student') {
+        this.fetchTags()
+      } else if (['teacher', 'admin'].includes(this.userRole)) {
+        this.fetchStudentList()
+      }
     }
   },
   watch: {
     currentDimension (val) {
       if (val === 'student') {
-        this.fetchTags()
+        if (this.userRole === 'student') {
+          this.fetchTags()
+        } else {
+          if (this.studentList.length === 0) {
+            this.fetchStudentList()
+          }
+        }
       }
     }
   },
@@ -244,15 +313,48 @@ export default {
       if (tag.tag_type === '等级') return 'tag-level'
       return 'tag-quant'
     },
+    async fetchStudentList () {
+      this.loadingStudents = true
+      try {
+        const res = await fetch(`http://localhost:5000/api/v1/teacher/my_students?username=${this.username}`)
+        const data = await res.json()
+        if (data.success) {
+          this.studentList = data.data
+        } else {
+          console.error('Fetch students failed:', data.msg)
+        }
+      } catch (err) {
+        console.error('Fetch students error:', err)
+      } finally {
+        this.loadingStudents = false
+      }
+    },
+    selectStudent (stu) {
+      this.selectedStudent = stu
+      this.fetchTags()
+    },
     async fetchTags () {
       const username = this.username
+      let url = `http://localhost:5000/api/v1/tags/student?username=${username}`
+
+      // 如果是老师/管理员且已选择学生
+      if (this.userRole !== 'student') {
+        if (this.selectedStudent) {
+          url = `http://localhost:5000/api/v1/tags/student?student_id=${this.selectedStudent.student_id}`
+        } else {
+          this.tags = []
+          return
+        }
+      }
+
       try {
-        const res = await fetch(`http://localhost:5000/api/v1/tags/student?username=${username}`)
+        const res = await fetch(url)
         const data = await res.json()
         if (data.success) {
           this.tags = data.data
         } else {
           console.error('Fetch tags failed:', data.msg)
+          this.tags = []
         }
       } catch (err) {
         console.error('Fetch tags error:', err)
@@ -277,10 +379,26 @@ export default {
     async generateTags () {
       this.loadingTags = true
       try {
-        const res = await fetch('http://localhost:5000/api/v1/tags/generate', {
+        let url = 'http://localhost:5000/api/v1/tags/generate'
+        let body = { username: this.username }
+
+        if (this.userRole !== 'student') {
+          if (!this.selectedStudent) {
+            alert('请先选择一个学生')
+            this.loadingTags = false
+            return
+          }
+          url = 'http://localhost:5000/api/v1/tags/generate_single'
+          body = {
+            student_id: this.selectedStudent.student_id,
+            operator_username: this.username
+          }
+        }
+
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: this.username })
+          body: JSON.stringify(body)
         })
         const data = await res.json()
         if (data.success) {
@@ -355,6 +473,88 @@ export default {
 /* 等级标签样式覆盖 */
 .tag-level .tag-value {
   color: #FF9800;
+}
+
+/* 教师视图布局 */
+.teacher-student-view {
+  display: flex;
+  height: 100%;
+  gap: 20px;
+}
+
+.student-list-panel {
+  width: 250px;
+  background-color: #f9f9f9;
+  border-right: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.panel-header {
+  padding: 10px 15px;
+  background-color: #e6e9f0;
+  font-weight: bold;
+  color: #333;
+  border-bottom: 1px solid #dcdfe6;
+}
+
+.student-list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.student-item {
+  padding: 10px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  transition: background-color 0.2s;
+}
+
+.student-item:hover {
+  background-color: #e6f7ff;
+}
+
+.student-item.active {
+  background-color: #bae7ff;
+  color: #000;
+}
+
+.stu-no {
+  color: #666;
+  font-size: 12px;
+  margin-right: 10px;
+}
+
+.student-detail-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-header {
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #eee;
+  font-size: 16px;
+  font-weight: bold;
+  color: #4169e1;
+}
+
+.no-selection {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #999;
+  font-size: 16px;
 }
 </style>
 
