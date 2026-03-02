@@ -174,7 +174,7 @@
     <div>
       <!-- 按钮 -->
       <button class="floating-btn" @click="AiSummary">
-        AI总结
+        <svg t="1772439634242" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4782" width="60" height="60"><path d="M955 607.2L843.6 412.1l47.8-91.6c6.6-8.7 8.3-21.5 5.6-31.8L835.7 178c-4.7-7.3-12.8-11.8-21.5-12H586.3l-51-89.2c-3.6-7-10.5-11.8-18.3-12.7H396.7c-8.9 0.2-15.2 6.7-19.6 14.4l-1.9 3.1-113.8 195.1H152.2c-9-0.2-17.5 4.3-22.3 12L67 400.1c-4 8-4 17.5 0 25.5l113.1 196.7-51 89.2c-4 8-4 17.4 0 25.5l58.1 102c4.7 7.8 13.2 12.7 22.3 12.7h227.8l54.9 95.5c4.2 7.2 11.6 11.9 19.9 12.8h129c8.9-0.2 17.1-5 21.5-12.7L775 750.5h100.4c8.9-0.8 16.9-5.8 21.5-13.5L955 634.3c5.4-8.3 5.4-18.9 0-27.1zM814.1 620L756 512.5 517 933.7l-65.3-107.5H212.8l57.4-104.3H392L153 302.2h125L396.7 90.3l59.7 104.3-61.3 107.5H873l-60.5 106.8 120.3 211H814.1z" fill="#605BEC" p-id="4783"></path><path d="M511.4 660.5l149-238.9H361.7l149.7 238.9z m0 0" fill="#605BEC" p-id="4784"></path></svg>
       </button>
 
       <!-- 浮层 -->
@@ -186,14 +186,19 @@
         >
           <div class="ai-modal-content">
             <div class="ai-modal-header">
+            <div class="header-left">
               <h3>AI总结</h3>
-              <button class="ai-close-btn" @click="closeModal" title="关闭">×</button>
+              <button class="refresh-btn" @click="refreshAiSummary" title="刷新">
+                <svg t="1772443535133" class="icon" viewBox="0 0 1879 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4779" width="30" height="30"><path d="M938.617341 45.280925c-106.987283 0-205.687861 35.810405-285.003468 96.184971-17.905202 13.613873-19.532948 39.953757-3.551445 55.93526 13.169942 13.169942 34.034682 14.649711 48.83237 3.255491 66.589595-50.608092 149.752601-80.795376 239.574566-80.795375 207.16763 0 377.932948 159.667052 395.542197 362.247399 1.627746 19.384971-0.295954 34.774566-0.295954 34.774566l-93.225434 0.739884 113.202313 225.516763c9.766474 0 150.788439-226.404624 150.788439-226.404624h-94.409249c0.443931-24.564162-1.183815-35.810405-1.627745-40.545665-20.716763-241.054335-223.593064-430.760694-469.82659-430.90867zM938.617341 913.905202c-219.00578 0-397.021965-178.164162-397.021965-397.021965v-0.443931l94.261271-1.035838-112.018497-224.924855-150.936416 226.256647h94.261272C467.015029 781.317919 692.087861 988.485549 938.617341 988.485549c110.982659 0 213.234682-38.621965 293.882081-102.991907 17.313295-13.909827 18.645087-39.80578 2.959538-55.49133-13.465896-13.465896-34.774566-14.649711-49.572255-2.811561-67.921387 54.307514-153.895954 86.714451-247.269364 86.714451z" fill="#ffffff" p-id="4780"></path></svg>
+              </button>
             </div>
+            <button class="ai-close-btn" @click="closeModal" title="关闭">×</button>
+          </div>
 
             <div class="ai-modal-body">
               <div class="ai-content-display">
                 <p v-if="!aiContent" class="loading-text">AI正在分析中...</p>
-                <div v-else class="content-text">{{ aiContent }}</div>
+                <div v-else class="content-text" v-html="renderedAiContent"></div>
               </div>
             </div>
           </div>
@@ -209,6 +214,12 @@ import UserManagement from './UserManagement'
 import DataImport from './DataImport'
 import Survey from './Survey'
 import QuestionnaireConfig from './QuestionnaireConfig'
+import MarkdownIt from 'markdown-it'
+
+const md = new MarkdownIt({
+  breaks: true,
+  html: true
+})
 
 export default {
   name: 'Home',
@@ -293,6 +304,9 @@ export default {
       }
 
       return map
+    },
+    renderedAiContent () {
+      return md.render(this.aiContent || '')
     }
   },
   methods: {
@@ -404,6 +418,10 @@ export default {
     },
     closeModal () {
       this.showModal = false
+    },
+    async refreshAiSummary () {
+      this.aiContent = ''
+      this.AiSummary()
     },
     async AiSummary () {
       // 打开浮层
@@ -631,6 +649,31 @@ export default {
   background-color: #fff;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.refresh-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background-color: #1890ff;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.refresh-btn:hover {
+  opacity: 0.8;
+}
+
 .ai-modal-header h3 {
   margin: 0;
   color: #1f1f1f;
@@ -670,7 +713,53 @@ export default {
   font-size: 15px;
   line-height: 1.8;
   color: #333;
-  white-space: pre-wrap; /* 保留换行符 */
+}
+
+/* AI Summary Markdown Styles */
+.ai-content-display .content-text p {
+  margin-bottom: 1em;
+}
+.ai-content-display .content-text ul,
+.ai-content-display .content-text ol {
+  padding-left: 20px;
+  margin-bottom: 1em;
+}
+.ai-content-display .content-text li {
+  margin-bottom: 0.5em;
+}
+.ai-content-display .content-text h1,
+.ai-content-display .content-text h2,
+.ai-content-display .content-text h3,
+.ai-content-display .content-text h4 {
+  margin-top: 1.2em;
+  margin-bottom: 0.6em;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.ai-content-display .content-text code {
+  background-color: #f6f8fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.9em;
+}
+.ai-content-display .content-text pre {
+  background-color: #f6f8fa;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 1em;
+}
+.ai-content-display .content-text pre code {
+  padding: 0;
+  background-color: transparent;
+  font-size: 100%;
+}
+.ai-content-display .content-text blockquote {
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+  padding-left: 16px;
+  margin: 0 0 1em 0;
 }
 
 .loading-text {
@@ -1159,7 +1248,7 @@ export default {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background-color: #409eff;
+  background-color: #fff;
   color: white;
   border: none;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -1173,7 +1262,6 @@ export default {
 }
 
 .floating-btn:hover {
-  background-color: #66b1ff;
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0,0,0,0.2);
 }
