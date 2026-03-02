@@ -1258,12 +1258,100 @@ def get_user_list():
 # ai总结
 @app.route("/api/v1/user/aisummary", methods=["POST"])
 def summaryAI():
-    # fileContent = app.config["fileContent"]
-    # if not fileContent:
-    #     return jsonify({"code": 400, "message": "暂无解析内容", "data": {}})
+    data = request.get_json()
+    username = data.get('username')
+    target_student_no = data.get('student_no')
+
+    if not username:
+         return jsonify({"code": 400, "message": "缺少用户信息", "data": {}})
+
+    fileContent = ""
+    connection = None
+    try:
+        connection = pymysql.connect(**DB_CONFIG)
+        with connection.cursor() as cursor:
+            # 1. 确定当前用户身份
+            cursor.execute("SELECT user_id, role_id FROM user WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if not user:
+                return jsonify({"code": 400, "message": "用户不存在", "data": {}})
+            
+            role_id = user['role_id']
+            student_id = None
+            
+            # 2. 确定目标学生ID
+            if role_id == 1: # 学生
+                cursor.execute("SELECT student_id FROM student WHERE user_id = %s", (user['user_id'],))
+                res = cursor.fetchone()
+                if res:
+                    student_id = res['student_id']
+            else: # 教师或管理员
+                if target_student_no:
+                    cursor.execute("SELECT student_id FROM student WHERE student_no = %s", (target_student_no,))
+                    res = cursor.fetchone()
+                    if res:
+                        student_id = res['student_id']
+            
+            if not student_id:
+                return jsonify({"code": 400, "message": "未找到目标学生信息", "data": {}})
+
+            # 3. 查询学生基本信息
+            cursor.execute("SELECT stu_name, student_no, gender, grade, class_id FROM student WHERE student_id = %s", (student_id,))
+            student_info = cursor.fetchone()
+            
+            # 4. 查询学生标签
+            sql_tags = """
+                SELECT t.tag_name, st.tag_value, t.description, t.tag_type
+                FROM student_tag st
+                JOIN tag t ON st.tag_id = t.tag_id
+                WHERE st.student_id = %s
+            """
+            cursor.execute(sql_tags, (student_id,))
+            tags = cursor.fetchall()
+            
+            # 5. 查询成绩概况
+            cursor.execute("SELECT count(*) as fail_count FROM score WHERE student_id = %s AND score < 60", (student_id,))
+            fail_res = cursor.fetchone()
+            fail_count = fail_res['fail_count'] if fail_res else 0
+            
+            cursor.execute("SELECT AVG(score) as avg_score FROM score WHERE student_id = %s", (student_id,))
+            avg_res = cursor.fetchone()
+            avg_score = float(avg_res['avg_score']) if avg_res and avg_res['avg_score'] else 0.0
+
+            # 6. 组装 fileContent
+            fileContent = f"【学生基础信息】\n姓名：{student_info['stu_name']} | 学号：{student_info['student_no']} | 性别：{student_info['gender']} | 年级：{student_info['grade']} | 班级：{student_info['class_id']}\n\n"
+            
+            fileContent += "【学业成绩概况】\n"
+            fileContent += f"平均分：{avg_score:.2f} | 挂科科目数：{fail_count}\n\n"
+            
+            fileContent += "【学生画像标签】\n"
+            if tags:
+                for t in tags:
+                    val = t['tag_value']
+                    try:
+                        val_float = float(val)
+                        val_str = f"{val_float:.2f}"
+                    except:
+                        val_str = str(val)
+                    
+                    fileContent += f"- [{t['tag_type']}] {t['tag_name']}：{val_str}\n"
+            else:
+                fileContent += "暂无标签数据\n"
+
+    except Exception as e:
+        print(f"查询学生画像数据失败: {e}")
+        return jsonify({"code": 500, "message": f"服务器内部错误: {str(e)}", "data": {}})
+    finally:
+        if connection and connection.open:
+            connection.close()
+
+    if not fileContent:
+        return jsonify({"code": 400, "message": "暂无解析内容", "data": {}})
+        
     words = (
-        "你是什么模型"
+        "请作为一位专业的学生辅导员，根据以下学生画像数据，为该学生生成一份详细的总结和建议：\n\n" + fileContent
     )
+    
     try:
         print("\033[33m开始AI分析\033[0m")
         client = OpenAI(

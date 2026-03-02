@@ -269,6 +269,9 @@ export default {
           }
         }
       }
+    },
+    selectedStudent () {
+      this.aiContent = ''
     }
   },
   beforeDestroy () {
@@ -405,18 +408,31 @@ export default {
     async AiSummary () {
       // 打开浮层
       this.showModal = true
+      // 如果已有内容，不重复请求
+      if (this.aiContent) return
 
-      // 显示加载中
-      this.aiContent = 'AI正在分析中，请稍候...'
+      const payload = {
+        username: this.username
+      }
+
+      if (['teacher', 'admin'].includes(this.userRole)) {
+        if (this.selectedStudent) {
+          payload.student_no = this.selectedStudent.student_no
+        } else {
+          this.aiContent = '请先选择一个学生'
+          return
+        }
+      }
 
       try {
         const response = await fetch(
-          'http://localhost:5000/api/v1/user/aisummary',
+          'http://127.0.0.1:5000/api/v1/user/aisummary',
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify(payload)
           }
         )
 
