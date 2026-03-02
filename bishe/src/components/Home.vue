@@ -133,11 +133,6 @@
                     </div>
                   </div>
                 </div>
-
-                <!-- 浮动操作按钮 -->
-                <button class="floating-btn">
-                 <svg t="1772417294531" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4876" width="60" height="60"><path d="M887.466667 521.557333V312.763733a1.570133 1.570133 0 0 0-0.9216-1.467733L512.853333 102.6048A1.706667 1.706667 0 0 0 512 102.4v87.381333c0 169.5744 142.165333 331.639467 317.5424 331.639467a236.202667 236.202667 0 0 0-10.581333 0.2048h68.471466v-0.034133z" fill="#988EFF" p-id="4877"></path><path d="M136.533333 521.557333v216.302934c0 0.648533 0.341333 1.2288 0.887467 1.536l373.691733 216.064A1.706667 1.706667 0 0 0 512 955.733333v-90.5216c0-175.616-142.1312-343.4496-317.5424-343.4496 3.549867 0 7.031467-0.034133 10.581333-0.2048H136.533333v0.068267z" fill="#6253FF" p-id="4878"></path><path d="M136.533333 521.557333V312.763733c0-0.648533 0.341333-1.2288 0.887467-1.467733l373.691733-208.657067A1.706667 1.706667 0 0 1 512 102.4v87.381333c0 169.5744-142.1312 331.639467-317.5424 331.639467 3.549867 0 7.031467 0.034133 10.581333 0.2048H136.533333v-0.034133z" fill="#988EFF" p-id="4879"></path><path d="M887.466667 521.557333v216.302934a1.706667 1.706667 0 0 1-0.9216 1.536l-373.691734 216.064A1.706667 1.706667 0 0 1 512 955.733333v-90.5216c0-175.616 142.165333-343.4496 317.5424-343.4496-3.549867 0-7.031467-0.034133-10.581333-0.2048h68.471466v0.068267z" fill="#6253FF" p-id="4880"></path><path d="M512.068267 189.8496c0 169.540267 142.165333 331.605333 317.5424 331.605333l-10.513067 0.136534c3.4816 0.170667 7.031467 0.2048 10.513067 0.2048-175.377067 0-317.5424 167.8336-317.5424 343.4496 0-174.08-139.6736-340.445867-312.866134-343.3472v-0.2048l5.905067-0.1024-5.973333-0.1024v-0.2048c173.2608-2.798933 312.9344-163.396267 312.9344-331.434667z" fill="#F7F8FA" p-id="4881"></path></svg>
-                </button>
               </div>
 
               <div v-else class="dimension-placeholder">
@@ -174,6 +169,36 @@
           <button class="modal-btn confirm-logout" @click="confirmLogout">确认退出</button>
         </div>
       </div>
+    </div>
+
+    <div>
+      <!-- 按钮 -->
+      <button class="floating-btn" @click="AiSummary">
+        AI总结
+      </button>
+
+      <!-- 浮层 -->
+      <transition name="fade">
+        <div
+          class="ai-modal"
+          v-if="showModal"
+          @click.self="closeModal"
+        >
+          <div class="ai-modal-content">
+            <div class="ai-modal-header">
+              <h3>AI总结</h3>
+              <button class="ai-close-btn" @click="closeModal" title="关闭">×</button>
+            </div>
+
+            <div class="ai-modal-body">
+              <div class="ai-content-display">
+                <p v-if="!aiContent" class="loading-text">AI正在分析中...</p>
+                <div v-else class="content-text">{{ aiContent }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
@@ -214,7 +239,9 @@ export default {
       loadingTags: false,
       studentList: [],
       selectedStudent: null,
-      loadingStudents: false
+      loadingStudents: false,
+      showModal: false,
+      aiContent: ''
     }
   },
   mounted () {
@@ -372,6 +399,63 @@ export default {
       // 是数字，保留两位小数
       return num.toFixed(2)
     },
+    closeModal () {
+      this.showModal = false
+    },
+    async AiSummary () {
+      // 打开浮层
+      this.showModal = true
+
+      // 显示加载中
+      this.aiContent = 'AI正在分析中，请稍候...'
+
+      try {
+        const response = await fetch(
+          'http://localhost:5000/api/v1/user/aisummary',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        )
+
+        const data = await response.json()
+
+        if (data.code === 200) {
+          // 清空加载文字
+          this.aiContent = ''
+
+          // 保存完整文本
+          this.fullText = data.reply
+
+          // 开始打字机效果
+          this.typeWriter()
+        } else {
+          this.aiContent = '分析失败：' + data.message
+        }
+      } catch (error) {
+        console.error(error)
+        this.aiContent = '请求失败，请检查后端服务'
+      }
+    },
+    typeWriter () {
+      let index = 0
+      const speed = 30 // 打字速度
+
+      if (this.typingTimer) {
+        clearInterval(this.typingTimer)
+      }
+
+      this.typingTimer = setInterval(() => {
+        if (index < this.fullText.length) {
+          this.aiContent += this.fullText[index]
+          index++
+        } else {
+          clearInterval(this.typingTimer)
+        }
+      }, speed)
+    },
     async generateTags () {
       if (this.loadingTags) return
       this.loadingTags = true
@@ -494,6 +578,128 @@ export default {
 }
 .tag-success .tag-value {
   color: #389e0d !important;
+}
+/* AI总结浮层样式 */
+.ai-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.ai-modal-content {
+  background-color: #fff;
+  border-radius: 12px;
+  width: 600px;
+  max-width: 90%;
+  padding: 0;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ai-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background-color: #fff;
+}
+
+.ai-modal-header h3 {
+  margin: 0;
+  color: #1f1f1f;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ai-close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.2s;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-close-btn:hover {
+  color: #333;
+  background-color: #f5f5f5;
+}
+
+.ai-modal-body {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.ai-content-display {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #333;
+  white-space: pre-wrap; /* 保留换行符 */
+}
+
+.loading-text {
+  color: #999;
+  text-align: center;
+  padding: 20px 0;
+  font-style: italic;
+}
+
+/* 自定义滚动条 */
+.ai-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ai-modal-body::-webkit-scrollbar-thumb {
+  background-color: #e0e0e0;
+  border-radius: 3px;
+}
+
+.ai-modal-body::-webkit-scrollbar-thumb:hover {
+  background-color: #ccc;
+}
+
+/* 浮层动画 */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter, .fade-leave-to {
+  opacity: 0;
+}
+
+.fade-enter-active .ai-modal-content,
+.fade-leave-active .ai-modal-content {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.fade-enter .ai-modal-content,
+.fade-leave-to .ai-modal-content {
+  transform: translateY(20px) scale(0.98);
+  opacity: 0;
 }
 </style>
 
@@ -931,13 +1137,13 @@ export default {
 }
 
 .floating-btn {
-  position: fixed;
+  position: absolute;
   bottom: 40px;
   right: 40px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background-color: #fff;
+  background-color: #409eff;
   color: white;
   border: none;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);

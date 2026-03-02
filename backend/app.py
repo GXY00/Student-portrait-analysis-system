@@ -14,6 +14,7 @@ from pymysql.cursors import DictCursor
 import json
 from tag_rule_engine import TagRuleEngine
 from portrait_service import PortraitService
+from openai import OpenAI
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 dist_dir = os.path.join(base_dir, '../bishe/dist')
@@ -26,7 +27,7 @@ app = Flask(__name__,
 app.secret_key = 'GXY040713'
 
 # 允许跨域
-CORS(app, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # 数据库配置
 DB_CONFIG = {
@@ -1253,6 +1254,57 @@ def get_user_list():
     except Exception as e:
         print(f"获取用户列表失败: {e}")
         return jsonify({"success": False, "msg": "服务器内部错误"}), 500
+
+# ai总结
+@app.route("/api/v1/user/aisummary", methods=["POST"])
+def summaryAI():
+    # fileContent = app.config["fileContent"]
+    # if not fileContent:
+    #     return jsonify({"code": 400, "message": "暂无解析内容", "data": {}})
+    words = (
+        "你是什么模型"
+    )
+    try:
+        print("\033[33m开始AI分析\033[0m")
+        client = OpenAI(
+            # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx"
+            api_key="sk-36e295a1420f45649e621a22ed68459d",
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        )
+        completion = client.chat.completions.create(
+            # 模型列表：https://help.aliyun.com/zh/model-studio/getting-started/models
+            model="qwen-plus",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": words},
+            ]
+        )
+        print(completion.model_dump_json())
+        ans = json.loads(completion.model_dump_json())
+        print(type(ans))
+        summary_text = ans["choices"][0]["message"]["content"] # type: ignore
+        if summary_text:
+            print(summary_text)
+            return jsonify(
+                {
+                    "code": 200,
+                    "message": "success",
+                    "reply": summary_text,
+                }
+            )
+
+        return jsonify(
+            {
+                "code": 200,
+                "message": "success",
+                "reply": "空内容",
+            }
+        )
+
+    except Exception as e:
+        return jsonify(
+            {"code": 400, "message": f"调用API失败：{str(e)}", "reply": None}
+        )
 
 if __name__ == '__main__':
     print(f"前端静态资源目录: {static_dir}")
