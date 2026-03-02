@@ -917,6 +917,7 @@ def import_score():
 
 @app.route('/api/v1/questionnaire/list', methods=['GET'])
 def get_questionnaire_list():
+    student_no = request.args.get('student_no')
     try:
         connection = pymysql.connect(**DB_CONFIG)
         with connection.cursor() as cursor:
@@ -925,10 +926,26 @@ def get_questionnaire_list():
             cursor.execute(sql)
             result = cursor.fetchall()
             
+            submitted_ids = set()
+            if student_no:
+                # Get student_id
+                cursor.execute("SELECT student_id FROM student WHERE student_no = %s", (student_no,))
+                student = cursor.fetchone()
+                if student:
+                    student_id = student['student_id']
+                    # Get submitted records
+                    cursor.execute("SELECT questionnaire_id FROM questionnaire_record WHERE student_id = %s", (student_id,))
+                    records = cursor.fetchall()
+                    submitted_ids = {r['questionnaire_id'] for r in records}
+
             # 处理 datetime 对象，转为字符串
             for item in result:
                 if item.get('create_time'):
                     item['create_time'] = item['create_time'].strftime('%Y-%m-%d %H:%M:%S')
+                
+                # Check submission status
+                item['is_submitted'] = item['questionnaire_id'] in submitted_ids
+
                 # content_structure 是 JSON 类型，pymysql 的 DictCursor 通常会自动处理，或者是字符串
                 # 如果是字符串需要解析，如果是 dict 则不用
                 # 检查一下 content_structure 类型

@@ -13,7 +13,7 @@
       </div>
     </div>
 
-    <!-- View: Questionnaire List -->
+    <!-- View: 问卷列表 -->
     <div v-if="view === 'list'" class="list-view">
       <div v-if="loading" class="loading">加载中...</div>
       <div v-else-if="filteredQuestionnaires.length === 0" class="empty">
@@ -30,13 +30,20 @@
             <p class="time">发布时间: {{ formatDate(q.create_time) }}</p>
           </div>
           <div class="card-footer">
-            <button class="btn-start" @click="selectQuestionnaire(q)">开始填写</button>
+            <button
+              class="btn-start"
+              :class="{ 'btn-disabled': q.is_submitted }"
+              :disabled="q.is_submitted"
+              @click="!q.is_submitted && selectQuestionnaire(q)"
+            >
+              {{ q.is_submitted ? '已填写' : '开始填写' }}
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- View: Survey Form -->
+    <!-- View: 问卷填写表单 -->
     <div v-if="view === 'form'" class="survey-form">
       <div class="section">
         <h3 class="section-title">基本信息</h3>
@@ -145,7 +152,11 @@ export default {
         })
     },
     fetchQuestionnaires () {
-      fetch('/api/v1/questionnaire/list')
+      const url = this.studentNo
+        ? `/api/v1/questionnaire/list?student_no=${this.studentNo}`
+        : '/api/v1/questionnaire/list'
+
+      fetch(url)
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -233,6 +244,7 @@ export default {
             alert('问卷提交成功！')
             this.view = 'list'
             this.currentQuestionnaire = null
+            this.fetchQuestionnaires()
           } else {
             alert('提交失败: ' + data.msg)
           }
@@ -365,6 +377,16 @@ export default {
 
 .btn-start:hover {
   background: #66b1ff;
+}
+
+.btn-disabled {
+  background: #909399;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-disabled:hover {
+  background: #909399;
 }
 
 .empty {

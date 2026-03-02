@@ -133,7 +133,13 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- 浮动操作按钮 -->
+                <button class="floating-btn">
+                 <svg t="1772417294531" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4876" width="60" height="60"><path d="M887.466667 521.557333V312.763733a1.570133 1.570133 0 0 0-0.9216-1.467733L512.853333 102.6048A1.706667 1.706667 0 0 0 512 102.4v87.381333c0 169.5744 142.165333 331.639467 317.5424 331.639467a236.202667 236.202667 0 0 0-10.581333 0.2048h68.471466v-0.034133z" fill="#988EFF" p-id="4877"></path><path d="M136.533333 521.557333v216.302934c0 0.648533 0.341333 1.2288 0.887467 1.536l373.691733 216.064A1.706667 1.706667 0 0 0 512 955.733333v-90.5216c0-175.616-142.1312-343.4496-317.5424-343.4496 3.549867 0 7.031467-0.034133 10.581333-0.2048H136.533333v0.068267z" fill="#6253FF" p-id="4878"></path><path d="M136.533333 521.557333V312.763733c0-0.648533 0.341333-1.2288 0.887467-1.467733l373.691733-208.657067A1.706667 1.706667 0 0 1 512 102.4v87.381333c0 169.5744-142.1312 331.639467-317.5424 331.639467 3.549867 0 7.031467 0.034133 10.581333 0.2048H136.533333v-0.034133z" fill="#988EFF" p-id="4879"></path><path d="M887.466667 521.557333v216.302934a1.706667 1.706667 0 0 1-0.9216 1.536l-373.691734 216.064A1.706667 1.706667 0 0 1 512 955.733333v-90.5216c0-175.616 142.165333-343.4496 317.5424-343.4496-3.549867 0-7.031467-0.034133-10.581333-0.2048h68.471466v0.068267z" fill="#6253FF" p-id="4880"></path><path d="M512.068267 189.8496c0 169.540267 142.165333 331.605333 317.5424 331.605333l-10.513067 0.136534c3.4816 0.170667 7.031467 0.2048 10.513067 0.2048-175.377067 0-317.5424 167.8336-317.5424 343.4496 0-174.08-139.6736-340.445867-312.866134-343.3472v-0.2048l5.905067-0.1024-5.973333-0.1024v-0.2048c173.2608-2.798933 312.9344-163.396267 312.9344-331.434667z" fill="#F7F8FA" p-id="4881"></path></svg>
+                </button>
               </div>
+
               <div v-else class="dimension-placeholder">
                 {{ dimensionMap[currentDimension] }}
               </div>
@@ -272,7 +278,7 @@ export default {
       }
     },
     handleLogout () {
-      console.log('Logout clicked, showing modal')
+      console.log('点击退出，显示弹窗')
       this.showLogoutModal = true
     },
     confirmLogout () {
@@ -298,7 +304,7 @@ export default {
           username: username,
           status: status
         })
-      }).catch(err => console.error('Logout logging failed', err))
+      }).catch(err => console.error('登出日志记录失败', err))
     },
     getTagClass (tag) {
       const val = String(tag.tag_value || '')
@@ -344,10 +350,10 @@ export default {
         if (data.success) {
           this.tags = data.data
         } else {
-          console.error('Fetch tags failed:', data.msg)
+          console.error('获取标签失败:', data.msg)
         }
       } catch (err) {
-        console.error('Fetch tags error:', err)
+        console.error('获取标签错误:', err)
       }
     },
     formatValue (val) {
@@ -465,7 +471,7 @@ export default {
   color: #FF9800;
 }
 
-/* Color Coding for Tags */
+/* 标签颜色编码 */
 .tag-danger {
   background-color: #ffe6e6 !important;
   border: 1px solid #ff4d4f !important;
@@ -809,11 +815,12 @@ export default {
   background-color: #cc0000;
 }
 
-/* Student View Layout */
+/* 学生视图布局 */
 .student-view-container {
+  position: relative;
   display: flex;
   height: 100%;
-  min-height: 600px; /* Ensure height for sidebar */
+  min-height: 600px; /* 确保侧边栏高度 */
   background-color: #fff;
   border-radius: 8px;
   overflow: hidden;
@@ -871,7 +878,7 @@ export default {
 .student-item.active {
   background-color: #e6f7ff;
   border-left: 4px solid #1890ff;
-  padding-left: 16px; /* Adjust for border */
+  padding-left: 16px; /* 调整边框 */
 }
 
 .s-info-row {
@@ -921,5 +928,39 @@ export default {
 
 .tags-grid-wrapper {
   width: 100%;
+}
+
+.floating-btn {
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #fff;
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  z-index: 100;
+  outline: none;
+}
+
+.floating-btn:hover {
+  background-color: #66b1ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+.floating-btn:active {
+  transform: translateY(0);
+}
+
+.floating-btn svg {
+  fill: currentColor;
 }
 </style>
