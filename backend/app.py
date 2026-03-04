@@ -14,6 +14,7 @@ from pymysql.cursors import DictCursor
 import json
 from tag_rule_engine import TagRuleEngine
 from portrait_service import PortraitService
+from cluster_analysis import ClusterAnalyzer
 from openai import OpenAI
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1398,6 +1399,46 @@ def summaryAI():
         return jsonify(
             {"code": 400, "message": f"调用API失败：{str(e)}", "reply": None}
         )
+
+# ===============================
+# 聚类画像分析接口
+# ===============================
+@app.route('/api/v1/analysis/cluster', methods=['POST'])
+def perform_cluster_analysis():
+    data = request.get_json()
+    task_desc = data.get('task_desc', f'聚类任务_{datetime.now().strftime("%Y%m%d%H%M")}')
+    features = data.get('features', [])
+    k_value = int(data.get('k_value', 4))
+    
+    if not features:
+        return jsonify({"code": 400, "message": "请选择至少一个特征标签"}), 400
+        
+    try:
+        analyzer = ClusterAnalyzer(DB_CONFIG)
+        result = analyzer.perform_clustering(task_desc, features, k_value)
+        
+        if result['status'] == 'success':
+            return jsonify({"code": 200, "message": "分析成功", "data": result['data']})
+        else:
+            return jsonify({"code": 500, "message": result['message']}), 500
+            
+    except Exception as e:
+        print(f"聚类分析失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"code": 500, "message": str(e)}), 500
+
+@app.route('/api/v1/analysis/cluster/history', methods=['GET'])
+def get_cluster_history():
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM cluster_task ORDER BY create_time DESC LIMIT 20")
+            tasks = cursor.fetchall()
+        conn.close()
+        return jsonify({"code": 200, "data": tasks})
+    except Exception as e:
+        return jsonify({"code": 500, "message": str(e)}), 500
 
 if __name__ == '__main__':
     print(f"前端静态资源目录: {static_dir}")

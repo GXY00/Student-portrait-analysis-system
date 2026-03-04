@@ -5,3 +5,6 @@ captcha
 Pillow
 openpyxl
 python-docx
+scikit-learn
+pandas
+numpy
