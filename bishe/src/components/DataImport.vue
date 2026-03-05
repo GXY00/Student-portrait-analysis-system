@@ -6,43 +6,58 @@
 
     <!-- 导入面板 -->
     <div class="container import-panel">
-      <div class="form-row">
-        <div class="form-group">
-          <label>请选择文件：</label>
-          <div class="input-with-button">
-            <input
-              type="text"
-              :value="fileName"
-              placeholder="文件名"
-              readonly
-              class="filename-input"
-            />
-            <input
-              type="file"
-              ref="fileInput"
-              @change="handleFileChange"
-              accept=".xlsx, .xls, .csv"
-              style="display: none"
-            />
-            <button class="btn btn-blue" @click="triggerFileSelect">
-              选择文件
-            </button>
+      <div class="panel-left">
+        <div class="form-row">
+          <div class="form-group">
+            <label>请选择文件：</label>
+            <div class="input-with-button">
+              <input
+                type="text"
+                :value="fileName"
+                placeholder="文件名"
+                readonly
+                class="filename-input"
+              />
+              <input
+                type="file"
+                ref="fileInput"
+                @change="handleFileChange"
+                accept=".xlsx, .xls, .csv"
+                style="display: none"
+              />
+              <button class="btn btn-blue" @click="triggerFileSelect">
+                选择文件
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>文件类型：</label>
+            <select v-model="fileType" class="select-input">
+              <option value="student">学生信息</option>
+              <option value="teacher">教师信息</option>
+              <option value="score">课程成绩</option>
+            </select>
           </div>
         </div>
-        <div class="form-group">
-          <label>文件类型：</label>
-          <select v-model="fileType" class="select-input">
-            <option value="student">学生信息</option>
-            <option value="teacher">教师信息</option>
-            <option value="score">课程成绩</option>
-          </select>
+
+        <div class="form-row actions">
+          <button class="btn btn-blue" @click="handleImport">导入</button>
+          <button class="btn btn-gray" @click="handleReset">重置</button>
+          <span class="hint-text">文件仅支持 xlsx/xls/csv 格式</span>
         </div>
       </div>
 
-      <div class="form-row actions">
-        <button class="btn btn-blue" @click="handleImport">导入</button>
-        <button class="btn btn-gray" @click="handleReset">重置</button>
-        <span class="hint-text">文件仅支持 xlsx/xls/csv 格式</span>
+      <!-- 下载模板按钮 -->
+      <div class="panel-right">
+        <button class="btn btn-green" @click="downloadTemplate('student')">
+          学生信息导入模板
+        </button>
+        <button class="btn btn-green" @click="downloadTemplate('teacher')">
+          教师信息导入模板
+        </button>
+        <button class="btn btn-green" @click="downloadTemplate('score')">
+          成绩导入模板
+        </button>
       </div>
     </div>
 
@@ -247,6 +262,32 @@ export default {
       this.tableData = []
       this.tableHeaders = []
       this.$refs.fileInput.value = ''
+    },
+    downloadTemplate (type) {
+      let fileName = ''
+      let fileUrl = ''
+
+      switch (type) {
+        case 'student':
+          fileName = '学生信息导入模板.xlsx'
+          fileUrl = '/static/template/student_template.xlsx'
+          break
+        case 'teacher':
+          fileName = '教师信息导入模板.xlsx'
+          fileUrl = '/static/template/teacher_template.xlsx'
+          break
+        case 'score':
+          fileName = '成绩导入模板.xlsx'
+          fileUrl = '/static/template/score_template.xlsx'
+          break
+      }
+
+      if (fileUrl) {
+        const link = document.createElement('a')
+        link.href = fileUrl
+        link.download = fileName
+        link.click()
+      }
     }
   }
 }
@@ -283,8 +324,25 @@ export default {
 
 .import-panel {
   display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.panel-left {
+  display: flex;
   flex-direction: column;
   gap: 20px;
+  flex: 1;
+}
+
+.panel-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 180px;
+  justify-content: center;
 }
 
 .preview-panel {
@@ -376,6 +434,18 @@ export default {
 
 .btn-gray:hover {
   background-color: #e6e8eb;
+}
+
+.btn-green {
+  background-color: #28a745;
+  color: #fff;
+  border-radius: 20px; /* 胶囊形状 */
+  font-weight: normal;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+}
+
+.btn-green:hover {
+  background-color: #218838;
 }
 
 .actions {
