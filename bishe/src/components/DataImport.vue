@@ -270,22 +270,25 @@ export default {
       switch (type) {
         case 'student':
           fileName = '学生信息导入模板.xlsx'
-          fileUrl = '/static/template/student_template.xlsx'
+          fileUrl = 'https://d.tmpfile.link/public/2026-03-05/53b457dc-1739-45fb-adc9-ff953e1faacd/student_template.xlsx'
           break
+
         case 'teacher':
           fileName = '教师信息导入模板.xlsx'
-          fileUrl = '/static/template/teacher_template.xlsx'
+          fileUrl = 'https://d.tmpfile.link/public/2026-03-05/9f47e0c9-4133-45c2-add3-366154aca048/teacher_template.xlsx'
           break
+
         case 'score':
           fileName = '成绩导入模板.xlsx'
-          fileUrl = '/static/template/score_template.xlsx'
+          fileUrl = 'https://d.tmpfile.link/public/2026-03-05/3951ba76-7bde-436b-9d2b-84e37e264753/score_template.xlsx'
           break
       }
-
+      // 如果链接失效，需要到 https://tmpfile.link/index-zh 更新临时文件链接
       if (fileUrl) {
         const link = document.createElement('a')
         link.href = fileUrl
         link.download = fileName
+        link.target = '_blank'
         link.click()
       }
     }
