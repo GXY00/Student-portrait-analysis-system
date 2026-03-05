@@ -375,7 +375,7 @@ export default {
       if (!clusterInfo) return
 
       // 构造雷达图指标
-      const indicator = features.map(f => ({ name: f, max: 2 })) // 假设标准化后值在 -2 到 2 之间，这里 max 设为相对值，或者动态计算
+      // const indicator = features.map(f => ({ name: f, max: 2 })) // 假设标准化后值在 -2 到 2 之间，这里 max 设为相对值，或者动态计算
 
       // 实际上标准化后的值可能是负数，ECharts 雷达图处理负数不太直观，通常需要归一化或者直接显示
       // 为了展示效果，我们直接显示原始值（如果是标准化值，可能需要 shift 一下）
