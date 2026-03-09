@@ -16,7 +16,7 @@
           <span class="icon"><svg t="1769481345592" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="18426" width="50" height="50"><path d="M853.333333 853.333333H170.666667V170.666667h341.333333v-85.333334H170.666667c-47.36 0-85.333333 37.973333-85.333334 85.333334v682.666666c0 47.36 37.973333 85.333333 85.333334 85.333334h682.666666c47.36 0 85.333333-37.973333 85.333334-85.333334v-341.333333h-85.333334v341.333333zM426.666667 640l213.333333-213.333333 128 128L554.666667 768H426.666667v-128z m462.933333-322.133333l-61.866667 61.866666-128-128 61.866667-61.866666c17.066667-17.066667 44.8-17.066667 61.866667 0l66.133333 66.133333c17.066667 17.066667 17.066667 44.8 0 61.866667z" fill="#b2b4b7" p-id="18427"></path></svg></span>
           <span class="text">问卷填写</span>
         </li>
-        <li class="nav-item" :class="{ active: currentView === 'clusterAnalysis' }" v-if="['teacher', 'admin'].includes(userRole)" @click="currentView = 'clusterAnalysis'">
+        <li class="nav-item" :class="{ active: currentView === 'clusterAnalysis' }" v-if="['teacher'].includes(userRole)" @click="currentView = 'clusterAnalysis'">
           <span class="icon"><svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="50" height="50"><path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64z m0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z" fill="#b2b4b7"></path><circle cx="512" cy="400" r="60" fill="#b2b4b7"/><circle cx="350" cy="650" r="60" fill="#b2b4b7"/><circle cx="674" cy="650" r="60" fill="#b2b4b7"/></svg></span>
           <span class="text">群体画像分析</span>
         </li>
@@ -53,7 +53,7 @@
       </div>
 
       <!-- 内容区域 -->
-      <div class="content-wrapper">
+      <div class="content-wrapper" :class="{'dashboard-view': currentView === 'dashboard'}">
         <!-- 仪表盘内容 -->
         <div v-if="currentView === 'dashboard'" class="dashboard-content">
           <div class="dashboard-header">
@@ -139,6 +139,60 @@
                           <div class="info-icon-wrapper" :title="tag.description">
                             <svg t="1771899969833" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5242" width="30" height="30"><path d="M518.542222 284.444444a145.066667 145.066667 0 0 0-108.373333 40.106667A144.213333 144.213333 0 0 0 369.777778 431.786667h66.275555a105.813333 105.813333 0 0 1 16.782223-64.568889A70.257778 70.257778 0 0 1 514.844444 341.333333a71.111111 71.111111 0 0 1 52.622223 18.773334 72.248889 72.248889 0 0 1 18.204444 51.2 73.955556 73.955556 0 0 1-16.782222 45.511111l-10.524445 11.946666a343.324444 343.324444 0 0 0-71.395555 77.653334 132.266667 132.266667 0 0 0-11.946667 59.448889v10.524444H540.444444v-10.524444a85.333333 85.333333 0 0 1 9.955556-41.813334 108.657778 108.657778 0 0 1 25.6-31.857777A611.84 611.84 0 0 0 630.613333 483.555556a123.164444 123.164444 0 0 0 23.608889-76.8 113.777778 113.777778 0 0 0-36.977778-89.6A142.222222 142.222222 0 0 0 518.542222 284.444444z m-10.524444 366.08a41.813333 41.813333 0 0 0-31.857778 12.515556 40.106667 40.106667 0 0 0-13.653333 31.857778 46.08 46.08 0 0 0 45.511111 44.657778 48.924444 48.924444 0 0 0 32.426666-12.231112 44.088889 44.088889 0 0 0 13.084445-32.426666A40.96 40.96 0 0 0 540.444444 662.755556a44.942222 44.942222 0 0 0-33.28-12.515556z" p-id="5243" fill="#cdcdcd"></path><path d="M512 56.888889A455.111111 455.111111 0 1 1 56.888889 512 455.111111 455.111111 0 0 1 512 56.888889m0-56.888889a512 512 0 1 0 512 512A512 512 0 0 0 512 0z" p-id="5244" fill="#cdcdcd"></path></svg>
                           </div>
+                        </div>
+                        <div class="tag-value">{{ formatValue(tag.tag_value) }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else-if="currentDimension === 'class'" class="student-view-container">
+                <!-- 班级列表侧边栏 (复用 student-list-sidebar 样式) -->
+                <div v-if="userRole === 'admin'" class="student-list-sidebar">
+                   <div class="sidebar-header">
+                     <span>班级列表</span>
+                   </div>
+                   <div v-if="loadingClasses" class="loading-text">加载中...</div>
+                   <ul v-else class="student-list">
+                     <li
+                       v-for="c in classList"
+                       :key="c.class_id"
+                       class="student-item"
+                       :class="{active: selectedClass && selectedClass.class_id === c.class_id}"
+                       @click="selectClass(c)"
+                     >
+                       <div class="s-info-row">
+                         <span class="s-name">{{ c.class_name }}</span>
+                       </div>
+                     </li>
+                   </ul>
+                </div>
+
+                <!-- 班级画像显示区域 -->
+                <div class="student-tags-wrapper">
+                  <div v-if="!selectedClass" class="empty-selection">
+                    <div class="empty-tips">
+                       请在左侧选择一个班级查看画像
+                    </div>
+                  </div>
+
+                  <div v-else class="tags-grid-wrapper">
+                    <!-- 班级画像雷达图 -->
+                    <div v-if="classTags.length > 0" class="portrait-chart-card">
+                      <div class="chart-header">
+                        <h4>班级综合画像雷达图</h4>
+                      </div>
+                      <div ref="classRadarChart" class="chart-body"></div>
+                    </div>
+
+                    <div v-if="classTags.length === 0" class="no-tags">
+                      暂无班级标签数据。
+                    </div>
+                    <div v-else class="tags-grid">
+                      <div v-for="tag in classTags" :key="tag.tag_name" class="tag-card">
+                        <div class="tag-header-row">
+                          <span class="tag-name">{{ tag.tag_name }}</span>
                         </div>
                         <div class="tag-value">{{ formatValue(tag.tag_value) }}</div>
                       </div>
@@ -271,7 +325,15 @@ export default {
       loadingStudents: false,
       showModal: false,
       aiContent: '',
-      radarChartInstance: null
+      radarChartInstance: null,
+
+      // Class Dimension Data
+      classList: [],
+      selectedClass: null,
+      loadingClasses: false,
+      classTags: [],
+      loadingClassTags: false,
+      classRadarChartInstance: null
     }
   },
   mounted () {
@@ -290,14 +352,33 @@ export default {
     }
   },
   watch: {
+    // 监听视图变化，进入dashboard时刷新数据
+    currentView (newVal) {
+      if (newVal === 'dashboard') {
+        if (this.currentDimension === 'student') {
+          if (['teacher', 'admin'].includes(this.userRole)) {
+            this.fetchStudentList()
+          } else if (this.userRole === 'student') {
+            this.fetchTags()
+          }
+        } else if (this.currentDimension === 'class') {
+          if (this.userRole === 'admin') {
+            this.fetchClassList()
+          }
+        }
+      }
+    },
     currentDimension (val) {
       if (val === 'student') {
         if (this.userRole === 'student') {
           this.fetchTags()
         } else if (['teacher', 'admin'].includes(this.userRole)) {
-          if (this.studentList.length === 0) {
-            this.fetchStudentList()
-          }
+          // Always refresh student list when viewing student dimension
+          this.fetchStudentList()
+        }
+      } else if (val === 'class') {
+        if (this.userRole === 'admin') {
+          this.fetchClassList()
         }
       }
     },
@@ -321,10 +402,6 @@ export default {
 
       if (['teacher', 'admin'].includes(this.userRole)) {
         if (this.dimensionMap.class) map.class = this.dimensionMap.class
-      }
-
-      if (this.userRole === 'admin') {
-        if (this.dimensionMap.grade) map.grade = this.dimensionMap.grade
       }
 
       return map
@@ -391,7 +468,8 @@ export default {
     async fetchStudentList () {
       this.loadingStudents = true
       try {
-        const res = await fetch(`http://localhost:5000/api/v1/teacher/students?username=${this.username}`)
+        const timestamp = new Date().getTime()
+        const res = await fetch(`http://localhost:5000/api/v1/teacher/students?username=${this.username}&t=${timestamp}`)
         const data = await res.json()
         if (data.success) {
           this.studentList = data.data
@@ -672,6 +750,126 @@ export default {
       }
 
       this.radarChartInstance.setOption(option)
+    },
+
+    // Class Dimension Methods
+    async fetchClassList () {
+      this.loadingClasses = true
+      try {
+        const res = await fetch(`http://localhost:5000/api/v1/admin/classes?username=${this.username}`)
+        const data = await res.json()
+        if (data.success) {
+          this.classList = data.data
+        } else {
+          console.error('获取班级列表失败:', data.msg)
+        }
+      } catch (error) {
+        console.error('获取班级列表失败', error)
+      } finally {
+        this.loadingClasses = false
+      }
+    },
+    async selectClass (c) {
+      this.selectedClass = c
+      await this.fetchClassTags()
+    },
+    async fetchClassTags () {
+      if (!this.selectedClass) return
+      this.loadingClassTags = true
+      try {
+        const res = await fetch(`http://localhost:5000/api/v1/tags/class?username=${this.username}&class_id=${this.selectedClass.class_id}`)
+        const data = await res.json()
+        if (data.success) {
+          this.classTags = data.data
+          this.$nextTick(() => {
+            this.renderClassRadarChart()
+          })
+        } else {
+          console.error('获取班级标签失败:', data.msg)
+          this.classTags = []
+        }
+      } catch (error) {
+        console.error('获取班级标签失败', error)
+        this.classTags = []
+      } finally {
+        this.loadingClassTags = false
+      }
+    },
+    renderClassRadarChart () {
+      if (!this.$refs.classRadarChart) return
+
+      const dom = this.$refs.classRadarChart
+      if (this.classRadarChartInstance) {
+        this.classRadarChartInstance.dispose()
+      }
+      this.classRadarChartInstance = echarts.init(dom)
+
+      const numericTags = []
+      const indicator = []
+      const dataValues = []
+
+      this.classTags.forEach(tag => {
+        let val = parseFloat(tag.tag_value)
+        if (isNaN(val)) {
+          return
+        }
+
+        let name = tag.tag_name
+        let max = 100
+
+        if (val > max) max = Math.ceil(val * 1.2)
+        if (max < 10) max = 10
+
+        indicator.push({ name: name, max: max })
+        dataValues.push(val)
+        numericTags.push(tag)
+      })
+
+      if (numericTags.length < 3) {
+        this.classRadarChartInstance.setOption({
+          title: {
+            text: '暂无数值型画像数据',
+            left: 'center',
+            top: 'center',
+            textStyle: { color: '#999', fontSize: 14 }
+          }
+        })
+        return
+      }
+
+      const option = {
+        color: ['#FF9800'],
+        tooltip: {},
+        radar: {
+          indicator: indicator,
+          shape: 'circle',
+          splitNumber: 4,
+          axisName: { color: '#666', fontSize: 12 },
+          splitLine: {
+            lineStyle: {
+              color: ['rgba(255, 152, 0, 0.1)', 'rgba(255, 152, 0, 0.2)', 'rgba(255, 152, 0, 0.4)', 'rgba(255, 152, 0, 0.6)'].reverse()
+            }
+          },
+          splitArea: { show: false },
+          axisLine: { lineStyle: { color: 'rgba(255, 152, 0, 0.3)' } }
+        },
+        series: [{
+          name: '班级画像',
+          type: 'radar',
+          data: [{
+            value: dataValues,
+            name: '各项指标得分',
+            areaStyle: {
+              color: new echarts.graphic.RadialGradient(0.1, 0.6, 1, [
+                { color: 'rgba(255, 152, 0, 0.1)', offset: 0 },
+                { color: 'rgba(255, 152, 0, 0.7)', offset: 1 }
+              ])
+            }
+          }]
+        }]
+      }
+
+      this.classRadarChartInstance.setOption(option)
     }
   }
 }
@@ -1338,14 +1536,18 @@ export default {
   list-style: none;
   padding: 0;
   margin: 0;
+  height: 0; /* 关键：设置具体高度或0让flex生效，允许滚动 */
 }
 
 .student-list::-webkit-scrollbar {
-  width: 6px;
+  width: 8px; /* 加宽滚动条以便点击 */
 }
 .student-list::-webkit-scrollbar-thumb {
-  background-color: #ccc;
-  border-radius: 3px;
+  background-color: #c1c1c1;
+  border-radius: 4px;
+}
+.student-list::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a8a8;
 }
 
 .student-item {
@@ -1448,5 +1650,28 @@ export default {
 
 .floating-btn svg {
   fill: currentColor;
+}
+
+/* 仪表盘视图下的特殊布局：固定高度，内部滚动 */
+.content-wrapper.dashboard-view {
+  overflow: hidden;
+}
+
+.content-wrapper.dashboard-view .dashboard-content {
+  height: 100%;
+  overflow: hidden;
+}
+
+.content-wrapper.dashboard-view .container {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 20px); /* 减去 margin */
+}
+
+.content-wrapper.dashboard-view .dimension-content {
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
 }
 </style>

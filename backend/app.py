@@ -537,6 +537,61 @@ def get_student_tags():
     except Exception as e:
         return jsonify({"success": False, "msg": f"获取标签失败: {str(e)}"}), 500
 
+import re
+
+@app.route('/api/v1/admin/classes', methods=['GET'])
+def get_admin_classes():
+    username = request.args.get('username')
+    if not username:
+        return jsonify({"success": False, "msg": "用户名不能为空"}), 400
+    try:
+        # Check if user is admin (role_id=3)
+        user = query_db("SELECT role_id FROM user WHERE username = %s", (username,), one=True)
+        if not user or user['role_id'] != 3:
+             return jsonify({"success": False, "msg": "权限不足"}), 403
+
+        sql = "SELECT class_id, class_name, grade, major FROM class ORDER BY grade DESC"
+        classes = query_db(sql)
+        
+        def natural_sort_key(s):
+            return [int(text) if text.isdigit() else text.lower()
+                    for text in re.split('([0-9]+)', s['class_name'])]
+
+        if classes:
+            classes.sort(key=natural_sort_key)
+        
+        return jsonify({"success": True, "data": classes}), 200
+    except Exception as e:
+        return jsonify({"success": False, "msg": str(e)}), 500
+
+@app.route('/api/v1/tags/class', methods=['GET'])
+def get_class_tags():
+    username = request.args.get('username')
+    class_id = request.args.get('class_id')
+    
+    if not username:
+        return jsonify({"success": False, "msg": "用户名不能为空"}), 400
+    if not class_id:
+        return jsonify({"success": False, "msg": "班级ID不能为空"}), 400
+
+    try:
+        # Check permissions
+        user = query_db("SELECT role_id FROM user WHERE username = %s", (username,), one=True)
+        if not user:
+             return jsonify({"success": False, "msg": "用户不存在"}), 404
+        
+        # Fetch class tags
+        sql = "SELECT tag_name, tag_value FROM class_tag WHERE class_id = %s"
+        tags = query_db(sql, (class_id,))
+        
+        # Handle JSON serialization for tag_value if needed
+        # (pymysql DictCursor usually returns JSON columns as strings or dicts depending on driver)
+        # If it returns dict/list, jsonify handles it.
+        
+        return jsonify({"success": True, "data": tags}), 200
+    except Exception as e:
+        return jsonify({"success": False, "msg": str(e)}), 500
+
 @app.route('/api/v1/user/change_password', methods=['POST'])
 def change_password():
     data = request.get_json()
