@@ -170,7 +170,7 @@
                 </div>
 
                 <!-- 班级画像显示区域 -->
-                <div class="student-tags-wrapper">
+                <div class="student-tags-wrapper" :class="{'full-width': userRole === 'teacher'}">
                   <div v-if="!selectedClass" class="empty-selection">
                     <div class="empty-tips">
                        请在左侧选择一个班级查看画像
@@ -362,7 +362,7 @@ export default {
             this.fetchTags()
           }
         } else if (this.currentDimension === 'class') {
-          if (this.userRole === 'admin') {
+          if (['admin', 'teacher'].includes(this.userRole)) {
             this.fetchClassList()
           }
         }
@@ -377,7 +377,7 @@ export default {
           this.fetchStudentList()
         }
       } else if (val === 'class') {
-        if (this.userRole === 'admin') {
+        if (['admin', 'teacher'].includes(this.userRole)) {
           this.fetchClassList()
         }
       }
@@ -756,10 +756,23 @@ export default {
     async fetchClassList () {
       this.loadingClasses = true
       try {
-        const res = await fetch(`http://localhost:5000/api/v1/admin/classes?username=${this.username}`)
+        let url = ''
+        if (this.userRole === 'admin') {
+          url = `http://localhost:5000/api/v1/admin/classes?username=${this.username}`
+        } else if (this.userRole === 'teacher') {
+          url = `http://localhost:5000/api/v1/teacher/classes?username=${this.username}`
+        }
+
+        if (!url) return
+
+        const res = await fetch(url)
         const data = await res.json()
         if (data.success) {
           this.classList = data.data
+          // 如果是教师，默认选中第一个班级
+          if (this.userRole === 'teacher' && this.classList.length > 0 && !this.selectedClass) {
+            this.selectClass(this.classList[0])
+          }
         } else {
           console.error('获取班级列表失败:', data.msg)
         }

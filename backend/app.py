@@ -413,26 +413,26 @@ def generate_tags():
             user_id = user['user_id']
             role_id = user['role_id']
             
-    # Determine target student
+    # 确定目标学生
     sid = None
     if target_student_id:
         sid = target_student_id
-    elif role_id == 1: # Student
+    elif role_id == 1: # 学生
         student = query_db("SELECT student_id FROM student WHERE user_id = %s", (user_id,), one=True)
         if student:
             sid = student['student_id']
             
     if not sid:
-        # If no specific student and not a student role, maybe generate all?
-        # But for now, user requested specific generation.
+        # 如果没有指定具体学生且不是学生角色，可能生成所有？
+        # 但目前，用户请求特定生成。
         return jsonify({"success": False, "msg": "未指定目标学生"}), 400
 
-    # Get student name for log
+    # 获取日志的学生姓名
     s_info = query_db("SELECT stu_name as name FROM student WHERE student_id=%s", (sid,), one=True)
     s_name = s_info['name'] if s_info else "Unknown"
 
     try:
-        # Call the packaged service
+        # 调用封装的服务
         ok, msg = PortraitService.generate_student_portrait(sid, DB_CONFIG, base_dir)
         
         if ok:
@@ -545,7 +545,7 @@ def get_admin_classes():
     if not username:
         return jsonify({"success": False, "msg": "用户名不能为空"}), 400
     try:
-        # Check if user is admin (role_id=3)
+        # 检查用户是否为管理员（role_id=3）
         user = query_db("SELECT role_id FROM user WHERE username = %s", (username,), one=True)
         if not user or user['role_id'] != 3:
              return jsonify({"success": False, "msg": "权限不足"}), 403
@@ -564,6 +564,30 @@ def get_admin_classes():
     except Exception as e:
         return jsonify({"success": False, "msg": str(e)}), 500
 
+@app.route('/api/v1/teacher/classes', methods=['GET'])
+def get_teacher_classes():
+    username = request.args.get('username')
+    if not username:
+        return jsonify({"success": False, "msg": "用户名不能为空"}), 400
+    try:
+        # 检查用户是否为教师（role_id=2）
+        user = query_db("SELECT user_id, role_id FROM user WHERE username = %s", (username,), one=True)
+        if not user or user['role_id'] != 2:
+             return jsonify({"success": False, "msg": "权限不足"}), 403
+
+        # 获取教师的班级
+        sql = """
+            SELECT c.class_id, c.class_name, c.grade, c.major 
+            FROM teacher t
+            JOIN class c ON t.class_id = c.class_id
+            WHERE t.user_id = %s
+        """
+        classes = query_db(sql, (user['user_id'],))
+        
+        return jsonify({"success": True, "data": classes}), 200
+    except Exception as e:
+        return jsonify({"success": False, "msg": str(e)}), 500
+
 @app.route('/api/v1/tags/class', methods=['GET'])
 def get_class_tags():
     username = request.args.get('username')
@@ -575,18 +599,18 @@ def get_class_tags():
         return jsonify({"success": False, "msg": "班级ID不能为空"}), 400
 
     try:
-        # Check permissions
+        # 检查权限
         user = query_db("SELECT role_id FROM user WHERE username = %s", (username,), one=True)
         if not user:
              return jsonify({"success": False, "msg": "用户不存在"}), 404
         
-        # Fetch class tags
+        # 获取班级标签
         sql = "SELECT tag_name, tag_value FROM class_tag WHERE class_id = %s"
         tags = query_db(sql, (class_id,))
         
-        # Handle JSON serialization for tag_value if needed
-        # (pymysql DictCursor usually returns JSON columns as strings or dicts depending on driver)
-        # If it returns dict/list, jsonify handles it.
+        # 如果需要，处理 tag_value 的 JSON 序列化
+        # （pymysql DictCursor 通常根据驱动程序将 JSON 列作为字符串或字典返回）
+        # 如果返回字典/列表，jsonify 会处理它。
         
         return jsonify({"success": True, "data": tags}), 200
     except Exception as e:
@@ -985,12 +1009,12 @@ def get_questionnaire_list():
             
             submitted_ids = set()
             if student_no:
-                # Get student_id
+                # 获取学生ID
                 cursor.execute("SELECT student_id FROM student WHERE student_no = %s", (student_no,))
                 student = cursor.fetchone()
                 if student:
                     student_id = student['student_id']
-                    # Get submitted records
+                    # 获取提交记录
                     cursor.execute("SELECT questionnaire_id FROM questionnaire_record WHERE student_id = %s", (student_id,))
                     records = cursor.fetchall()
                     submitted_ids = {r['questionnaire_id'] for r in records}
@@ -1000,7 +1024,7 @@ def get_questionnaire_list():
                 if item.get('create_time'):
                     item['create_time'] = item['create_time'].strftime('%Y-%m-%d %H:%M:%S')
                 
-                # Check submission status
+                # 检查提交状态
                 item['is_submitted'] = item['questionnaire_id'] in submitted_ids
 
                 # content_structure 是 JSON 类型，pymysql 的 DictCursor 通常会自动处理，或者是字符串
@@ -1112,7 +1136,7 @@ def save_questionnaire():
             filename = file.filename.lower() if file.filename else ''
             try:
                 if filename.endswith('.xlsx') or filename.endswith('.xls'):
-                    # Parse Excel
+                    # 解析 Excel
                     wb = openpyxl.load_workbook(file) # type: ignore
                     sheet = wb.active
                     rows = list(sheet.iter_rows(values_only=True)) # type: ignore
@@ -1120,14 +1144,14 @@ def save_questionnaire():
                     if not rows:
                          return jsonify({"success": False, "msg": "Excel文件为空"}), 400
                          
-                    # Find headers
+                    # 查找表头
                     header = rows[0]
-                    # Clean headers (strip spaces)
+                    # 清理表头（去除空格）
                     header = [str(h).strip() if h else '' for h in header]
                     
                     try:
-                        # Try to find exact matches or partial matches if needed
-                        # Assuming exact match based on user description
+                        # 尝试查找精确匹配或部分匹配（如果需要）
+                        # 根据用户描述假设精确匹配
                         idx_id = -1
                         idx_text = -1
                         idx_type = -1
@@ -1137,7 +1161,7 @@ def save_questionnaire():
                                 idx_id = i
                             elif '题目类型' in h:
                                 idx_type = i
-                            elif '题目' in h: # Check this last as '题目' is substring of others
+                            elif '题目' in h: # 最后检查此项，因为'题目'是其他的子串
                                 idx_text = i
                         
                         if idx_id == -1 or idx_text == -1 or idx_type == -1:
@@ -1145,7 +1169,7 @@ def save_questionnaire():
                              
                         parsed_data = []
                         for row in rows[1:]:
-                            # Skip if row is shorter than max index
+                            # 如果行短于最大索引则跳过
                             max_idx = max(idx_id, idx_text, idx_type)
                             if len(row) <= max_idx:
                                 continue
@@ -1154,7 +1178,7 @@ def save_questionnaire():
                             q_text = row[idx_text]
                             q_type = row[idx_type]
                             
-                            if not q_text: # Skip if question text is empty
+                            if not q_text: # 如果题目内容为空则跳过
                                 continue
                                 
                             parsed_data.append({
@@ -1170,7 +1194,7 @@ def save_questionnaire():
                         return jsonify({"success": False, "msg": f"解析Excel逻辑错误: {str(e)}"}), 400
                         
                 elif filename.endswith('.docx'):
-                    # Parse Word
+                    # 解析 Word
                     doc = docx.Document(file) # type: ignore
                     paragraphs = []
                     for para in doc.paragraphs:
@@ -1186,7 +1210,7 @@ def save_questionnaire():
         connection = pymysql.connect(**DB_CONFIG)
         with connection.cursor() as cursor:
             if questionnaire_id:
-                # Update
+                # 更新
                 update_sql = "UPDATE questionnaire SET title=%s, description=%s, semester=%s"
                 params = [title, description, semester]
                 if content_structure:
@@ -1196,7 +1220,7 @@ def save_questionnaire():
                 params.append(questionnaire_id)
                 cursor.execute(update_sql, params)
             else:
-                # Insert
+                # 插入
                 if content_structure is None:
                     content_structure = '[]'
                 
@@ -1207,7 +1231,7 @@ def save_questionnaire():
         connection.close()
         
         op_type = "更新问卷" if questionnaire_id else "新增问卷"
-        log_operation('admin', op_type, 1) # Assuming admin user
+        log_operation('admin', op_type, 1) # 假设为管理员用户
         
         return jsonify({"success": True, "msg": "保存成功"}), 200
 
@@ -1224,11 +1248,11 @@ def delete_questionnaire():
         if not ids or not isinstance(ids, list):
             return jsonify({"success": False, "msg": "参数错误，请选择要删除的问卷"}), 400
             
-        # Convert ids to list of strings to prevent SQL injection if they were weird types, 
-        # though pymysql handles list with IN clause well if parameterized.
-        # But pymysql doesn't support list directly in %s for IN clause in a simple way 
-        # without building the string manually or using specific execute_many which is for multiple queries.
-        # Standard way: construct placeholder string
+        # 将 ID 转换为字符串列表以防止 SQL 注入（如果它们是奇怪的类型）， 
+        # 虽然如果参数化，pymysql 可以很好地处理带有 IN 子句的列表。
+        # 但是 pymysql 不支持简单地在 IN 子句的 %s 中直接使用列表 
+        # 而不手动构建字符串或使用专门用于多重查询的 execute_many。
+        # 标准方法：构建占位符字符串
         
         placeholders = ', '.join(['%s'] * len(ids))
         sql = f"DELETE FROM questionnaire WHERE questionnaire_id IN ({placeholders})"
