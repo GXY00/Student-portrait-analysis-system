@@ -13,6 +13,7 @@ import pymysql
 from pymysql.cursors import DictCursor
 import json
 from tag_rule_engine import TagRuleEngine
+from class_tag_rule_engine import ClassTagRuleEngine
 from portrait_service import PortraitService
 from cluster_analysis import ClusterAnalyzer
 from openai import OpenAI
@@ -446,6 +447,47 @@ def generate_tags():
         log_operation(username or 'system', f'生成{s_name}的学生画像失败', 0, user_id)
         return jsonify({"success": False, "msg": f"系统错误: {str(e)}"}), 500
 
+@app.route('/api/v1/tags/class/generate', methods=['POST'])
+def generate_class_tags():
+    data = request.get_json()
+    username = data.get('username')
+    class_id = data.get('class_id')
+    
+    if not username:
+        return jsonify({"success": False, "msg": "用户名不能为空"}), 400
+
+    try:
+        user = query_db("SELECT user_id, role_id FROM user WHERE username = %s", (username,), one=True)
+        if not user:
+             return jsonify({"success": False, "msg": "用户不存在"}), 404
+        
+        target_class_id = None
+        if user['role_id'] == 3: # Admin
+            if class_id:
+                target_class_id = class_id
+            else:
+                 return jsonify({"success": False, "msg": "未指定班级"}), 400
+        elif user['role_id'] == 2: # Teacher
+            teacher = query_db("SELECT class_id FROM teacher WHERE user_id = %s", (user['user_id'],), one=True)
+            if teacher:
+                target_class_id = teacher['class_id']
+            else:
+                return jsonify({"success": False, "msg": "教师未分配班级"}), 403
+        else:
+            return jsonify({"success": False, "msg": "权限不足"}), 403
+
+        ok, msg = PortraitService.generate_class_portrait(target_class_id, DB_CONFIG, base_dir)
+        
+        if ok:
+            log_operation(username, f'生成了班级{target_class_id}的画像', 1, user['user_id'])
+            return jsonify({"success": True, "msg": "班级标签生成成功"}), 200
+        else:
+            log_operation(username, f'生成班级{target_class_id}的画像失败', 0, user['user_id'])
+            return jsonify({"success": False, "msg": f"生成失败: {msg}"}), 500
+
+    except Exception as e:
+        return jsonify({"success": False, "msg": f"系统错误: {str(e)}"}), 500
+
 @app.route('/api/v1/teacher/students', methods=['GET'])
 def get_teacher_students():
     username = request.args.get('username')
@@ -550,15 +592,37 @@ def get_admin_classes():
         if not user or user['role_id'] != 3:
              return jsonify({"success": False, "msg": "权限不足"}), 403
 
-        sql = "SELECT class_id, class_name, grade, major FROM class ORDER BY grade DESC"
+        sql = "SELECT class_id, class_name, grade, major FROM class"
         classes = query_db(sql)
         
-        def natural_sort_key(s):
-            return [int(text) if text.isdigit() else text.lower()
-                    for text in re.split('([0-9]+)', s['class_name'])]
+        def custom_sort_key(s):
+            name = s['class_name']
+            # Grade mapping
+            grade_map = {'高一': 1, '高二': 2, '高三': 3}
+            grade_val = 99
+            
+            # Find grade
+            for k, v in grade_map.items():
+                if k in name:
+                    grade_val = v
+                    break
+            
+            # Extract number for class (e.g. "1班" -> 1)
+            # Find all numbers
+            nums = re.findall(r'\d+', name)
+            if nums:
+                # Use the last number as class number usually? 
+                # Or the first number after grade?
+                # "高一1班" -> 1
+                # "高一10班" -> 10
+                class_num = int(nums[-1])
+            else:
+                class_num = 0
+                
+            return (grade_val, class_num)
 
         if classes:
-            classes.sort(key=natural_sort_key)
+            classes.sort(key=custom_sort_key)
         
         return jsonify({"success": True, "data": classes}), 200
     except Exception as e:
