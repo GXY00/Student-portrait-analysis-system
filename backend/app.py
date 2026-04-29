@@ -35,7 +35,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "ReDMi142GXY!MYSQl",
+    # "password": "ReDMi142GXY!MYSQl",
     "database": "stuportrait",
     "port": 3306,
     "charset": "utf8mb4",

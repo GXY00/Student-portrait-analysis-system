@@ -14,6 +14,7 @@
     "build": "node build/build.js"
   },
   "dependencies": {
+    "es-abstract": "^1.22.5",
     "markdown-it": "^14.1.1",
     "mockjs": "^1.1.0",
     "vue": "^2.5.2",
